@@ -68,3 +68,30 @@ export type TrendDirection = "improving" | "declining" | "stable";
 
 /** Color-coded status for metric health. */
 export type MetricStatus = "green" | "yellow" | "red";
+
+/** Nudge type identifiers matching backend NudgeType enum. */
+export type NudgeType =
+  | "student_silent"
+  | "student_low_eye_contact"
+  | "tutor_dominant"
+  | "student_energy_drop"
+  | "interruption_spike"
+  | "tutor_low_eye_contact";
+
+/** Configurable nudge trigger thresholds. */
+export interface NudgeThresholds {
+  student_silent_minutes: number;
+  eye_contact_low: number;
+  eye_contact_duration_s: number;
+  tutor_talk_pct: number;
+  tutor_talk_duration_minutes: number;
+  energy_drop_pct: number;
+  interruption_count: number;
+  interruption_window_minutes: number;
+}
+
+/** Tutor nudge preferences (matches backend PreferencesBody). */
+export interface TutorPreferences {
+  enabled_nudges: NudgeType[];
+  nudge_thresholds: NudgeThresholds;
+}
