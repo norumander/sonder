@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_tutor
 from app.auth.jwt import create_access_token
 from app.database import get_db
-from app.models.models import Session, SessionStatus, Tutor
+from app.models.models import Session, SessionStatus, SessionSummary, Tutor
+from app.summary.generator import generate_summary
 
 router = APIRouter(tags=["sessions"])
 
@@ -262,3 +263,45 @@ async def end_session(
         session_id=str(session.id),
         end_time=now.isoformat(),
     )
+
+
+@router.get("/sessions/{session_id}/summary")
+async def get_session_summary(
+    session_id: str,
+    tutor: Tutor = Depends(get_current_tutor),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get or generate the post-session summary. Tutor must own the session."""
+    try:
+        sid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Verify ownership
+    result = await db.execute(
+        select(Session).where(Session.id == sid, Session.tutor_id == tutor.id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Check for existing summary
+    summary_result = await db.execute(
+        select(SessionSummary).where(SessionSummary.session_id == sid)
+    )
+    summary = summary_result.scalar_one_or_none()
+
+    # Generate if not exists
+    if summary is None:
+        summary = await generate_summary(sid, db)
+
+    return {
+        "tutor_metrics": summary.tutor_metrics,
+        "student_metrics": summary.student_metrics,
+        "talk_time_ratio": summary.talk_time_ratio,
+        "total_interruptions": summary.total_interruptions,
+        "interruption_attribution": summary.interruption_attribution,
+        "flagged_moments": summary.flagged_moments,
+        "recommendations": summary.recommendations,
+        "overall_engagement_score": summary.overall_engagement_score,
+    }
