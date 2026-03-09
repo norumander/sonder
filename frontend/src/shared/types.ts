@@ -40,6 +40,18 @@ export interface StudentStatusMessage {
   };
 }
 
+export interface NudgeData {
+  nudge_type: string;
+  message: string;
+  priority: "high" | "medium" | "low";
+}
+
+export interface NudgeMessage {
+  type: "nudge";
+  data: NudgeData;
+  timestamp: number;
+}
+
 export interface HeartbeatMessage {
   type: "heartbeat";
 }
@@ -48,6 +60,7 @@ export type ServerMessage =
   | ServerMetricsMessage
   | AttentionDriftMessage
   | StudentStatusMessage
+  | NudgeMessage
   | HeartbeatMessage;
 
 /** Trend direction for a metric over the last 2 minutes. */
