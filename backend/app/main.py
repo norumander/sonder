@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app.auth.router import router as auth_router
 from app.config import settings
+from app.sessions.router import router as sessions_router
 
 app = FastAPI(title="Sonder", description="AI-powered live tutoring session analysis")
 
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(sessions_router)
 
 
 @app.exception_handler(401)

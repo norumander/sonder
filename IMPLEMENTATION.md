@@ -32,7 +32,7 @@ Steady-State Development — TASK-001 complete, TASK-002 next.
 - **Dependencies**: TASK-001
 
 ### TASK-003: Session CRUD REST API
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Implement session management endpoints: create session (generates join code), get session, list sessions, join session (student), end session. Join code is 6-character alphanumeric, unique.
 - **Acceptance Criteria**:
