@@ -7,12 +7,16 @@ import logging
 import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
 from starlette.websockets import WebSocketState
 
 from app.audio.buffer import AudioChunkBuffer
 from app.auth.jwt import decode_access_token
+from app.auth.router import DEFAULT_PREFERENCES
 from app.metrics.aggregator import MetricsAggregator
 from app.metrics.buffer import ClientMetricsBuffer
+from app.models.models import Nudge, NudgePriority, NudgeType, Tutor
+from app.nudges.engine import NudgeEngine
 from app.websocket.registry import ConnectionRegistry
 
 logger = logging.getLogger(__name__)
@@ -22,6 +26,10 @@ registry = ConnectionRegistry()
 audio_buffer = AudioChunkBuffer()
 client_metrics_buffer = ClientMetricsBuffer()
 metrics_aggregator = MetricsAggregator()
+nudge_engine = NudgeEngine()
+
+# Per-session tutor preferences cache (loaded on connect, updated per broadcast)
+_session_preferences: dict[str, dict] = {}
 
 HEARTBEAT_INTERVAL_S = 10
 BROADCAST_INTERVAL_S = 1  # Server metrics broadcast frequency
@@ -56,6 +64,52 @@ def _authenticate(token: str | None, session_id: str) -> tuple[str, str] | None:
     return None
 
 
+def _get_session_factory():
+    """Lazy import of session factory to avoid circular imports and test issues."""
+    from app.database import async_session_factory
+    return async_session_factory
+
+
+async def _load_tutor_preferences(session_id: str, tutor_id: str) -> None:
+    """Load tutor preferences from DB and cache for nudge evaluation.
+
+    Falls back to DEFAULT_PREFERENCES if DB is unavailable.
+    """
+    try:
+        factory = _get_session_factory()
+        async with factory() as db:
+            result = await db.execute(
+                select(Tutor.preferences).where(Tutor.id == tutor_id)
+            )
+            prefs = result.scalar_one_or_none()
+            _session_preferences[session_id] = prefs if prefs else DEFAULT_PREFERENCES
+    except Exception:
+        logger.debug("Failed to load tutor preferences for session=%s", session_id)
+        _session_preferences[session_id] = DEFAULT_PREFERENCES
+
+
+async def _persist_nudge(
+    session_id: str, nudge_type: str, message: str, priority: str,
+    trigger_metrics: dict, timestamp_ms: int,
+) -> None:
+    """Persist a nudge to the database. Fails silently if DB unavailable."""
+    try:
+        factory = _get_session_factory()
+        async with factory() as db:
+            nudge = Nudge(
+                session_id=session_id,
+                timestamp_ms=timestamp_ms,
+                nudge_type=NudgeType(nudge_type),
+                message=message,
+                priority=NudgePriority(priority),
+                trigger_metrics=trigger_metrics,
+            )
+            db.add(nudge)
+            await db.commit()
+    except Exception:
+        logger.debug("Failed to persist nudge for session=%s", session_id)
+
+
 async def _heartbeat_loop(websocket: WebSocket) -> None:
     """Send heartbeat messages to the client at a fixed interval."""
     try:
@@ -83,7 +137,8 @@ async def _send_to_tutor(session_id: str, message: dict) -> None:
 async def _broadcast_metrics(session_id: str, timestamp_ms: int) -> None:
     """Build and send server_metrics snapshot to the tutor.
 
-    Also sends any pending attention_drift change messages.
+    Also sends any pending attention_drift change messages and evaluates
+    nudge rules against the snapshot.
     """
     snapshot = metrics_aggregator.get_snapshot(session_id, timestamp_ms)
 
@@ -99,6 +154,25 @@ async def _broadcast_metrics(session_id: str, timestamp_ms: int) -> None:
             "type": "attention_drift",
             "data": change,
         })
+
+    # Evaluate nudge rules
+    preferences = _session_preferences.get(session_id, {})
+    if preferences:
+        nudges = nudge_engine.evaluate(session_id, snapshot, preferences)
+        for nudge in nudges:
+            await _send_to_tutor(session_id, {
+                "type": "nudge",
+                "data": {
+                    "nudge_type": nudge.nudge_type,
+                    "message": nudge.message,
+                    "priority": nudge.priority,
+                },
+                "timestamp": nudge.timestamp_ms,
+            })
+            await _persist_nudge(
+                session_id, nudge.nudge_type, nudge.message,
+                nudge.priority, nudge.trigger_metrics, nudge.timestamp_ms,
+            )
 
 
 async def _notify_student_status(session_id: str, connected: bool) -> None:
@@ -132,6 +206,11 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
     await websocket.accept()
     registry.add(session_id, role, websocket)
     logger.info("WebSocket connected: session=%s role=%s", session_id, role)
+
+    # Load tutor preferences for nudge evaluation (fire-and-forget)
+    if role == "tutor":
+        _session_preferences[session_id] = DEFAULT_PREFERENCES
+        asyncio.create_task(_load_tutor_preferences(session_id, subject_id))
 
     # Notify tutor when student connects
     if role == "student":
@@ -196,3 +275,8 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
         # Notify tutor when student disconnects
         if role == "student":
             await _notify_student_status(session_id, connected=False)
+
+        # Clean up nudge state when tutor disconnects
+        if role == "tutor":
+            _session_preferences.pop(session_id, None)
+            nudge_engine.clear_session(session_id)
