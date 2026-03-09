@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_tutor
 from app.auth.jwt import create_access_token
 from app.database import get_db
-from app.models.models import Session, SessionStatus, SessionSummary, Tutor
+from app.models.models import MetricSnapshot, Nudge, Session, SessionStatus, SessionSummary, Tutor
 from app.summary.generator import generate_summary
 
 router = APIRouter(tags=["sessions"])
@@ -304,4 +304,80 @@ async def get_session_summary(
         "flagged_moments": summary.flagged_moments,
         "recommendations": summary.recommendations,
         "overall_engagement_score": summary.overall_engagement_score,
+    }
+
+
+@router.get("/sessions/{session_id}/snapshots")
+async def get_session_snapshots(
+    session_id: str,
+    tutor: Tutor = Depends(get_current_tutor),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get metric snapshots for a session, ordered by timestamp. Tutor must own the session."""
+    try:
+        sid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    result = await db.execute(
+        select(Session).where(Session.id == sid, Session.tutor_id == tutor.id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    snap_result = await db.execute(
+        select(MetricSnapshot)
+        .where(MetricSnapshot.session_id == sid)
+        .order_by(MetricSnapshot.timestamp_ms.asc())
+    )
+    snapshots = snap_result.scalars().all()
+
+    return {
+        "snapshots": [
+            {
+                "timestamp_ms": s.timestamp_ms,
+                "metrics": s.metrics,
+            }
+            for s in snapshots
+        ],
+    }
+
+
+@router.get("/sessions/{session_id}/nudges")
+async def get_session_nudges(
+    session_id: str,
+    tutor: Tutor = Depends(get_current_tutor),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get nudges delivered during a session, ordered by timestamp. Tutor must own the session."""
+    try:
+        sid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    result = await db.execute(
+        select(Session).where(Session.id == sid, Session.tutor_id == tutor.id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    nudge_result = await db.execute(
+        select(Nudge)
+        .where(Nudge.session_id == sid)
+        .order_by(Nudge.timestamp_ms.asc())
+    )
+    nudges = nudge_result.scalars().all()
+
+    return {
+        "nudges": [
+            {
+                "timestamp_ms": n.timestamp_ms,
+                "nudge_type": n.nudge_type.value,
+                "message": n.message,
+                "priority": n.priority.value,
+            }
+            for n in nudges
+        ],
     }
