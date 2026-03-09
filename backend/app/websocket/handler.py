@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
@@ -15,7 +16,7 @@ from app.auth.jwt import decode_access_token
 from app.auth.router import DEFAULT_PREFERENCES
 from app.metrics.aggregator import MetricsAggregator
 from app.metrics.buffer import ClientMetricsBuffer
-from app.models.models import Nudge, NudgePriority, NudgeType, Tutor
+from app.models.models import Nudge, NudgePriority, NudgeType, SessionStatus, Tutor
 from app.nudges.engine import NudgeEngine
 from app.websocket.registry import ConnectionRegistry
 
@@ -31,8 +32,12 @@ nudge_engine = NudgeEngine()
 # Per-session tutor preferences cache (loaded on connect, updated per broadcast)
 _session_preferences: dict[str, dict] = {}
 
+# Per-session student reconnection timers (session_id → asyncio.Task)
+_reconnect_timers: dict[str, asyncio.Task] = {}
+
 HEARTBEAT_INTERVAL_S = 10
 BROADCAST_INTERVAL_S = 1  # Server metrics broadcast frequency
+RECONNECT_TIMEOUT_S = 30  # Grace period before auto-ending on student disconnect
 
 
 def _authenticate(token: str | None, session_id: str) -> tuple[str, str] | None:
@@ -183,6 +188,66 @@ async def _notify_student_status(session_id: str, connected: bool) -> None:
     })
 
 
+async def _send_to_student(session_id: str, message: dict) -> None:
+    """Send a JSON message to the student's WebSocket if connected."""
+    student_ws = registry.get(session_id, "student")
+    if student_ws is not None:
+        try:
+            if student_ws.client_state == WebSocketState.CONNECTED:
+                await student_ws.send_json(message)
+        except Exception:
+            logger.debug("Failed to send to student: session=%s", session_id)
+
+
+async def _broadcast_session_ended(session_id: str, reason: str) -> None:
+    """Send session_ended message to both tutor and student."""
+    message = {
+        "type": "session_ended",
+        "data": {
+            "reason": reason,
+            "timestamp_ms": int(time.time() * 1000),
+        },
+    }
+    await _send_to_tutor(session_id, message)
+    await _send_to_student(session_id, message)
+
+
+async def _end_session_in_db(session_id: str) -> None:
+    """Mark the session as completed in the database."""
+    try:
+        factory = _get_session_factory()
+        async with factory() as db:
+            from sqlalchemy import update
+
+            from app.models.models import Session as SessionModel
+
+            await db.execute(
+                update(SessionModel)
+                .where(SessionModel.id == session_id)
+                .values(
+                    status=SessionStatus.COMPLETED,
+                    end_time=datetime.now(UTC),
+                )
+            )
+            await db.commit()
+    except Exception:
+        logger.debug("Failed to update session status: session=%s", session_id)
+
+
+async def _reconnect_timeout(session_id: str) -> None:
+    """Wait for reconnection timeout, then auto-end the session."""
+    try:
+        await asyncio.sleep(RECONNECT_TIMEOUT_S)
+        # Timeout expired — student didn't reconnect
+        logger.info("Student reconnect timeout: session=%s", session_id)
+        await _broadcast_session_ended(session_id, "student_disconnect_timeout")
+        await _end_session_in_db(session_id)
+    except asyncio.CancelledError:
+        pass  # Timer cancelled — student reconnected
+    finally:
+        _reconnect_timers.pop(session_id, None)
+
+
 @router.websocket("/ws/session/{session_id}")
 async def websocket_session(websocket: WebSocket, session_id: str, token: str | None = None):
     """Handle WebSocket connections for a tutoring session.
@@ -212,8 +277,11 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
         _session_preferences[session_id] = DEFAULT_PREFERENCES
         asyncio.create_task(_load_tutor_preferences(session_id, subject_id))
 
-    # Notify tutor when student connects
+    # Notify tutor when student connects; cancel any pending reconnect timer
     if role == "student":
+        timer = _reconnect_timers.pop(session_id, None)
+        if timer is not None:
+            timer.cancel()
         await _notify_student_status(session_id, connected=True)
 
     # Start heartbeat for student
@@ -231,7 +299,11 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
 
             # Dispatch by message type
             msg_type = data.get("type")
-            if msg_type == "audio_chunk":
+            if msg_type == "end_session" and role == "tutor":
+                await _broadcast_session_ended(session_id, "tutor_ended")
+                await _end_session_in_db(session_id)
+                break
+            elif msg_type == "audio_chunk":
                 audio_buffer.add_chunk(
                     session_id,
                     role,
@@ -272,9 +344,14 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
             heartbeat_task.cancel()
         registry.remove(session_id, role)
 
-        # Notify tutor when student disconnects
+        # Notify tutor when student disconnects; start reconnection timer
         if role == "student":
             await _notify_student_status(session_id, connected=False)
+            # Only start timer if tutor is still connected (session not already ended)
+            if registry.get(session_id, "tutor") is not None:
+                _reconnect_timers[session_id] = asyncio.create_task(
+                    _reconnect_timeout(session_id)
+                )
 
         # Clean up nudge state when tutor disconnects
         if role == "tutor":

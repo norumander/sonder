@@ -56,12 +56,21 @@ export interface HeartbeatMessage {
   type: "heartbeat";
 }
 
+export interface SessionEndedMessage {
+  type: "session_ended";
+  data: {
+    reason: "tutor_ended" | "student_disconnect_timeout";
+    timestamp_ms: number;
+  };
+}
+
 export type ServerMessage =
   | ServerMetricsMessage
   | AttentionDriftMessage
   | StudentStatusMessage
   | NudgeMessage
-  | HeartbeatMessage;
+  | HeartbeatMessage
+  | SessionEndedMessage;
 
 /** Trend direction for a metric over the last 2 minutes. */
 export type TrendDirection = "improving" | "declining" | "stable";

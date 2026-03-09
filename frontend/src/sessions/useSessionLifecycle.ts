@@ -1,0 +1,93 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+interface UseSessionLifecycleResult {
+  sessionEnded: boolean;
+  endReason: string | null;
+  endSession: () => Promise<void>;
+}
+
+/**
+ * Hook managing session lifecycle: ending sessions, beforeunload cleanup,
+ * and listening for session_ended WebSocket messages.
+ *
+ * @param sessionId - Current session ID
+ * @param token - JWT auth token for PATCH request
+ * @param ws - WebSocket connection (nullable)
+ */
+export function useSessionLifecycle(
+  sessionId: string,
+  token: string,
+  ws: WebSocket | null,
+): UseSessionLifecycleResult {
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const [endReason, setEndReason] = useState<string | null>(null);
+  const sessionIdRef = useRef(sessionId);
+  const tokenRef = useRef(token);
+  const wsRef = useRef(ws);
+
+  sessionIdRef.current = sessionId;
+  tokenRef.current = token;
+  wsRef.current = ws;
+
+  const endSession = useCallback(async () => {
+    if (!sessionIdRef.current) return;
+
+    // Send end_session via WebSocket for real-time broadcast
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "end_session" }));
+    }
+
+    // Also call REST API to persist status change
+    await fetch(`${API_BASE}/sessions/${sessionIdRef.current}/end`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${tokenRef.current}` },
+    });
+
+    setSessionEnded(true);
+    setEndReason("tutor_ended");
+  }, []);
+
+  // Listen for session_ended WebSocket messages
+  useEffect(() => {
+    if (!ws) return;
+
+    function handleMessage(event: MessageEvent) {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "session_ended") {
+          setSessionEnded(true);
+          setEndReason(msg.data?.reason ?? null);
+        }
+      } catch {
+        // Ignore non-JSON messages
+      }
+    }
+
+    ws.addEventListener("message", handleMessage);
+    return () => ws.removeEventListener("message", handleMessage);
+  }, [ws]);
+
+  // Register beforeunload handler to end session on tab close
+  useEffect(() => {
+    function handleBeforeUnload() {
+      if (!sessionIdRef.current || !tokenRef.current) return;
+
+      // Use sendBeacon for reliable delivery during page unload
+      const url = `${API_BASE}/sessions/${sessionIdRef.current}/end`;
+      navigator.sendBeacon(
+        url,
+        new Blob(
+          [JSON.stringify({})],
+          { type: "application/json" },
+        ),
+      );
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  return { sessionEnded, endReason, endSession };
+}
