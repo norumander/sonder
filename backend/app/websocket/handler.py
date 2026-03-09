@@ -9,12 +9,14 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
 from app.auth.jwt import decode_access_token
+from app.audio.buffer import AudioChunkBuffer
 from app.websocket.registry import ConnectionRegistry
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 registry = ConnectionRegistry()
+audio_buffer = AudioChunkBuffer()
 
 HEARTBEAT_INTERVAL_S = 10
 
@@ -97,9 +99,15 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
             data["_role"] = role
             data["_session_id"] = session_id
 
-            # Client messages (audio chunks, client metrics) are processed
-            # server-side. Server_metrics and nudges are sent by the server
-            # to the tutor — no client-to-client forwarding.
+            # Dispatch by message type
+            msg_type = data.get("type")
+            if msg_type == "audio_chunk":
+                audio_buffer.add_chunk(
+                    session_id,
+                    role,
+                    data.get("data", ""),
+                    data.get("timestamp", 0),
+                )
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: session=%s role=%s", session_id, role)
