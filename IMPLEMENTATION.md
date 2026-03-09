@@ -1,7 +1,7 @@
 # IMPLEMENTATION.md
 
 ## Current Focus
-Steady-State Development — TASK-001 through TASK-004 complete, TASK-005 next.
+Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 
 ## Tasks
 
@@ -59,7 +59,7 @@ Steady-State Development — TASK-001 through TASK-004 complete, TASK-005 next.
 - **Dependencies**: TASK-001, TASK-002
 
 ### TASK-005: WebSocket Connection Infrastructure
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Implement WebSocket endpoint `WS /ws/session/{session_id}` supporting two connections per session (tutor + student). Authenticate via token query param. Route messages by role. Manage connection registry. Send heartbeat to student every 10 seconds.
 - **Acceptance Criteria**:
