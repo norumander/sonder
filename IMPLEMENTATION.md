@@ -1,7 +1,7 @@
 # IMPLEMENTATION.md
 
 ## Current Focus
-Steady-State Development — TASK-001 through TASK-003 complete, TASK-004 next.
+Steady-State Development — TASK-001 through TASK-004 complete, TASK-005 next.
 
 ## Tasks
 
@@ -48,7 +48,7 @@ Steady-State Development — TASK-001 through TASK-003 complete, TASK-004 next.
 - **Dependencies**: TASK-001, TASK-002
 
 ### TASK-004: Tutor Preferences API
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Implement GET/PUT `/tutor/preferences` for nudge threshold configuration and enabled nudge types. Default preferences populated on first login.
 - **Acceptance Criteria**:
