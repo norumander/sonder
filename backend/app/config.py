@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """Application settings with environment variable loading."""
 
     # Database
-    database_url: str = "postgresql+asyncpg://sonder:sonder@localhost:5432/sonder"
+    database_url: str = "postgresql+asyncpg://sonder:sonder@localhost:5433/sonder"
 
     # Auth
     google_client_id: str = ""

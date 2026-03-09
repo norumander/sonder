@@ -1,12 +1,12 @@
 # IMPLEMENTATION.md
 
 ## Current Focus
-Phase 1: Generate module files (ARCHITECTURE.md, IMPLEMENTATION.md tasks, DECISIONS.md, TESTING.md)
+Steady-State Development — TASK-001 complete, TASK-002 next.
 
 ## Tasks
 
 ### TASK-001: Database Models & Migrations
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Define SQLAlchemy 2.0 async models for Tutor, Session, MetricSnapshot, Nudge, and SessionSummary. Set up Alembic for migrations. Create initial migration. Configure async database session factory.
 - **Acceptance Criteria**:
@@ -367,5 +367,13 @@ _None yet._
 - **Completed**: Generated ARCHITECTURE.md (system diagram, 18 components, tech stack table, data models, directory structure), IMPLEMENTATION.md (26 dependency-ordered tasks with acceptance criteria), DECISIONS.md (6 ADRs), TESTING.md (test strategy, coverage targets, conventions).
 - **State**: All four module files generated. 26 tasks sequenced by dependency. No code yet.
 - **Next**: Execute Phase 2 — scaffold project structure, set up package management, install dependencies, configure linter/formatter, set up test runners.
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 16:30
+- **Phase**: Phase 2 — Scaffold
+- **Completed**: Created full directory structure per ARCHITECTURE.md. Backend: FastAPI app with config, database module, Alembic setup, all subpackage __init__.py files, pyproject.toml (ruff + pytest config), Dockerfile, requirements.txt with all deps installed in venv. Frontend: React 18 + Vite + TypeScript + Tailwind CSS, all source directories, package.json with deps installed, Vitest configured, Dockerfile. Root: docker-compose.yml, .env.example. Smoke tests pass on both sides (1 backend pytest, 1 frontend vitest). Ruff linter and TypeScript type checker pass clean.
+- **State**: Scaffold complete. Backend test runner works (pytest, 1 passing). Frontend test runner works (vitest, 1 passing). Linters pass. No production code yet. 26 tasks all TODO.
+- **Next**: Execute Phase 3 — Validation Checkpoint. Present architecture summary, full task list, confirm scaffold builds and tests pass, then get user go-ahead for TASK-001.
 - **Blockers**: None
 - **Open Questions**: None
