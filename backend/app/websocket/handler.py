@@ -8,8 +8,9 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
-from app.auth.jwt import decode_access_token
 from app.audio.buffer import AudioChunkBuffer
+from app.auth.jwt import decode_access_token
+from app.metrics.buffer import ClientMetricsBuffer
 from app.websocket.registry import ConnectionRegistry
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 registry = ConnectionRegistry()
 audio_buffer = AudioChunkBuffer()
+client_metrics_buffer = ClientMetricsBuffer()
 
 HEARTBEAT_INTERVAL_S = 10
 
@@ -106,6 +108,15 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
                     session_id,
                     role,
                     data.get("data", ""),
+                    data.get("timestamp", 0),
+                )
+            elif msg_type == "client_metrics":
+                metrics_data = data.get("data", {})
+                client_metrics_buffer.add_metrics(
+                    session_id,
+                    role,
+                    metrics_data.get("eye_contact_score"),
+                    metrics_data.get("facial_energy"),
                     data.get("timestamp", 0),
                 )
 
