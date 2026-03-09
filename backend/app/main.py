@@ -1,8 +1,10 @@
 """FastAPI application entry point."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from app.auth.router import router as auth_router
 from app.config import settings
 
 app = FastAPI(title="Sonder", description="AI-powered live tutoring session analysis")
@@ -14,6 +16,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
+
+
+@app.exception_handler(401)
+async def unauthorized_handler(request: Request, exc):
+    """Return {detail, code} format for 401 errors."""
+    code = "UNAUTHORIZED"
+    if hasattr(exc, "headers") and exc.headers:
+        code = exc.headers.get("code", code)
+    return JSONResponse(
+        status_code=401,
+        content={"detail": str(exc.detail), "code": code},
+    )
 
 
 @app.get("/health")

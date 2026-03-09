@@ -19,7 +19,7 @@ Steady-State Development — TASK-001 complete, TASK-002 next.
 - **Dependencies**: None (foundational)
 
 ### TASK-002: Google OAuth Authentication & JWT
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Implement Google OAuth token verification, JWT creation/validation, and auth middleware. POST `/auth/google` verifies Google ID token, creates Tutor on first login, returns JWT. GET `/auth/me` returns current tutor. `get_current_tutor` dependency for protected routes.
 - **Acceptance Criteria**:
