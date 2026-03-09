@@ -1,7 +1,7 @@
 # IMPLEMENTATION.md
 
 ## Current Focus
-Steady-State Development — TASK-001 complete, TASK-002 next.
+Steady-State Development — TASK-001 through TASK-003 complete, TASK-004 next.
 
 ## Tasks
 
@@ -375,5 +375,13 @@ _None yet._
 - **Completed**: Created full directory structure per ARCHITECTURE.md. Backend: FastAPI app with config, database module, Alembic setup, all subpackage __init__.py files, pyproject.toml (ruff + pytest config), Dockerfile, requirements.txt with all deps installed in venv. Frontend: React 18 + Vite + TypeScript + Tailwind CSS, all source directories, package.json with deps installed, Vitest configured, Dockerfile. Root: docker-compose.yml, .env.example. Smoke tests pass on both sides (1 backend pytest, 1 frontend vitest). Ruff linter and TypeScript type checker pass clean.
 - **State**: Scaffold complete. Backend test runner works (pytest, 1 passing). Frontend test runner works (vitest, 1 passing). Linters pass. No production code yet. 26 tasks all TODO.
 - **Next**: Execute Phase 3 — Validation Checkpoint. Present architecture summary, full task list, confirm scaffold builds and tests pass, then get user go-ahead for TASK-001.
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 17:00
+- **Phase**: Steady-State Development
+- **Completed**: TASK-001 (DB models + migration), TASK-002 (Google OAuth + JWT auth), TASK-003 (Session CRUD API). All with TDD.
+- **State**: 5 SQLAlchemy models (Tutor, Session, MetricSnapshot, Nudge, SessionSummary) with enums, JSONB columns, and relationships. Alembic initial migration applied to PostgreSQL (port 5433). Auth: POST /auth/google, GET /auth/me, get_current_tutor dependency. Sessions: POST/GET /sessions, POST /sessions/join (with HTML sanitization), PATCH /sessions/{id}/end, paginated list. 35 backend tests passing. Ruff lint clean. Frontend unchanged (1 test passing).
+- **Next**: TASK-004 (Tutor Preferences API) — simple GET/PUT /tutor/preferences. Then TASK-005 (WebSocket Infrastructure) which is the next major P0.
 - **Blockers**: None
 - **Open Questions**: None
