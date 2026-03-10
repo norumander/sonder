@@ -433,3 +433,11 @@ _None yet._
 - **Next**: TASK-017 (Nudge Display UI — toast notifications on tutor screen, auto-dismiss 8s, queue max 1 visible). Then TASK-018 (Nudge Configuration UI) or TASK-019 (Session Lifecycle Management).
 - **Blockers**: None
 - **Open Questions**: None
+
+### Checkpoint — 2026-03-09 19:25
+- **Phase**: Steady-State Development
+- **Completed**: TASK-024 (Pre-Recorded Video File Input — backend `prerecorded/` module with face_analyzer.py (server-side eye contact + facial energy from MediaPipe Python landmarks), video_processor.py (frame extraction via OpenCV, audio extraction via ffmpeg, metric pipeline orchestration through existing VAD/prosody/energy/talk-time/interruption modules), router.py (POST `/sessions/upload` with multipart file upload, background processing, session creation with type pre_recorded). Frontend UploadForm.tsx with two file inputs, timestamp offset field, processing speed selector (1x/2x/4x), route at `/upload` in App.tsx. Dependencies added: mediapipe, opencv-python-headless, ffmpeg (system). 24 new tests (17 backend, 7 frontend).
+- **State**: 24 of 26 tasks done. Backend: 213 tests passing, ruff clean. Frontend: 197 tests passing, no new TS errors. Pre-recorded video processing: tutor uploads 2 video files → backend extracts frames (cv2) + audio (ffmpeg) → runs through same metric pipeline as live sessions → produces MetricSnapshots → session marked completed → viewable in analytics. Processing speed (1x/2x/4x) controls frame sampling interval. Timestamp offset aligns student video to tutor video.
+- **Next**: TASK-025 (Graceful Degradation — face detection failure >5s warning, visual metrics excluded from nudge calc, audio unavailable >60s warning, student disconnect indicator, metric freeze on disconnect, reconnection resume, face detection warning clear). Dependencies satisfied (TASK-007, 014, 015, 019 all done).
+- **Blockers**: None
+- **Open Questions**: None
