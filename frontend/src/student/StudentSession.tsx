@@ -20,7 +20,7 @@ interface StudentSessionProps {
  * Streams face metrics and audio to the server via WebSocket.
  * Session-ended detection and tutor status tracking are handled by the parent (StudentFlow).
  */
-export function StudentSession({ sessionId, token, ws, tutorConnected, onLeave }: StudentSessionProps) {
+export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionProps) {
   // Use callback ref so useFaceMesh receives the actual DOM element
   const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
   const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {

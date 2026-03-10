@@ -10,6 +10,7 @@
 | ADR-004 | JSONB for Metric Snapshots | Accepted | 2026-03-09 |
 | ADR-005 | Anonymous Student Join Flow | Accepted | 2026-03-09 |
 | ADR-006 | Pre-Recorded Mode as Two Separate Files | Accepted | 2026-03-09 |
+| ADR-007 | Two-Tier Monolith Over Domain Microservices | Accepted | 2026-03-10 |
 
 ---
 
@@ -102,3 +103,63 @@
   - Positive: High accuracy — same as live sessions since each file contains one participant.
   - Negative: Requires tutors to have separate recordings per participant, which may not always be available.
   - Neutral: The timestamp offset feature is simple to implement (shift one stream relative to the other).
+
+---
+
+## ADR-007: Two-Tier Monolith Over Domain Microservices
+
+- **Status**: Accepted
+- **Date**: 2026-03-10
+- **Context**: The system could be organized as domain-vertical modules (`video-processor/`, `metrics-engine/`, `coaching-system/`, `analytics-dashboard/`) where each module owns its own frontend and backend code. The alternative is a two-tier monolith (`frontend/` + `backend/`) with domain modules nested inside each tier. This decision was evaluated after the initial implementation was complete.
+- **Decision**: Two-tier monolith. The codebase is split into `frontend/` (React/TypeScript) and `backend/` (FastAPI/Python), each containing domain-specific subdirectories.
+- **Rationale**:
+  1. **Shared WebSocket connection**: Tutor and student each maintain a single WebSocket to the backend. That one connection carries audio chunks, face metrics, session control messages, nudges, and heartbeats. Splitting the backend into separate services would require either multiplexing across service boundaries or giving each client multiple connections — both add complexity with no benefit at this scale.
+  2. **Tight metric pipeline coupling**: Audio analysis, face metrics, metric aggregation, and nudge evaluation all feed into a single per-second broadcast loop (`_broadcast_metrics`). The metrics engine needs audio VAD results *and* client face metrics *and* the nudge engine output in the same tick. Distributing these across services introduces network hops and synchronization overhead in a latency-sensitive pipeline.
+  3. **Single database, single transaction boundary**: All five tables (Tutor, Session, MetricSnapshot, Nudge, SessionSummary) are queried and written together — ending a session persists the final snapshot, fires nudge evaluation, and triggers summary generation. A single DB connection pool keeps this simple and consistent.
+  4. **Two-language boundary is the natural split**: Video/face analysis runs in the browser (TypeScript + MediaPipe WASM) because it avoids streaming video to the server. Audio/metric analysis runs in Python because of the ML ecosystem (webrtcvad, librosa). The frontend/backend boundary *is* the deployment boundary — there's no second axis to split on.
+  5. **1:1 session scale**: The system supports exactly one tutor and one student per session. There's no fan-out, no pub/sub, no multi-tenant routing that would benefit from service isolation.
+- **Module layout within this structure**:
+
+  ```
+  frontend/src/
+  ├── media/          → Video/audio capture (getUserMedia, chunking)
+  ├── metrics/        → Client-side face analysis (MediaPipe Face Mesh)
+  ├── dashboard/      → Live tutor dashboard (metric cards, trends)
+  ├── nudges/         → Coaching nudge toast display
+  ├── analytics/      → Post-session summaries and cross-session trends
+  ├── sessions/       → Session creation, join flow, lifecycle hooks
+  ├── student/        → Student minimal UI
+  ├── auth/           → Google OAuth, JWT, route guards
+  ├── settings/       → Nudge threshold configuration
+  └── shared/         → Types, config, WebSocket streaming hooks
+
+  backend/app/
+  ├── audio/          → WebRTC VAD, prosody extraction (per channel)
+  ├── metrics/        → Metric aggregation, snapshot computation
+  ├── nudges/         → Rule engine, cooldowns, nudge evaluation
+  ├── summary/        → Post-session summary generation
+  ├── trends/         → Cross-session trend aggregation API
+  ├── websocket/      → Connection registry, message dispatch, broadcast loop
+  ├── sessions/       → Session CRUD, join code validation
+  ├── auth/           → Google OAuth verification, JWT, middleware
+  ├── models/         → SQLAlchemy models, Alembic migrations
+  └── preferences/    → Tutor nudge preference management
+  ```
+
+- **Mapping to domain verticals** (for reference):
+
+  | Domain Concern | Frontend | Backend |
+  |---|---|---|
+  | Real-time video analysis | `metrics/`, `media/` | — (client-side only) |
+  | Engagement metrics | `dashboard/`, `shared/useMetricsStreaming` | `audio/`, `metrics/`, `websocket/` |
+  | Coaching suggestions | `nudges/` | `nudges/` |
+  | Post-session reporting | `analytics/` | `summary/`, `trends/` |
+  | Session management | `sessions/`, `student/`, `auth/` | `sessions/`, `auth/`, `websocket/` |
+
+- **Consequences**:
+  - Positive: Single deployment unit — one Docker Compose brings up the entire system. No inter-service networking, no service discovery, no distributed tracing.
+  - Positive: Shared in-memory state (metric buffers, nudge cooldowns, connection registry) — no need for Redis or a message broker.
+  - Positive: Simple debugging — a single backend process handles the full request lifecycle from WebSocket connect through metric broadcast to nudge delivery.
+  - Negative: Cannot scale individual domains independently (e.g., scale audio processing without scaling WebSocket handling). Acceptable at 1:1 session scale.
+  - Negative: Both tiers must be deployed together. No independent frontend/backend release cycle. Acceptable for a demo/evaluation build.
+  - Neutral: If the system later needs multi-session concurrency at scale, the metrics pipeline could be extracted into a worker process behind a task queue — but that's a future concern, not a current requirement.

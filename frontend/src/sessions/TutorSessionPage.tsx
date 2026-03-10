@@ -39,7 +39,7 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
 
   const { videoStream, status, error, consumeAudioChunks } = useMediaCapture();
   const { eyeContactScore, facialEnergy } = useFaceMesh(videoEl);
-  const { sessionEnded, endReason, endSession } = useTutorSessionControl(sessionId, token, ws);
+  const { sessionEnded, endSession } = useTutorSessionControl(sessionId, token, ws);
   const serverMetricsState = useServerMetrics(ws);
 
   // Stream metrics and audio to server
