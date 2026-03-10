@@ -1,6 +1,7 @@
 """Application configuration loaded from environment variables."""
 
 import logging
+import sys
 
 from pydantic_settings import BaseSettings
 
@@ -11,6 +12,9 @@ _DEFAULT_JWT_SECRET = "dev-secret-change-in-production"
 
 class Settings(BaseSettings):
     """Application settings with environment variable loading."""
+
+    # Environment
+    environment: str = "development"
 
     # Database
     database_url: str = "postgresql+asyncpg://sonder:sonder@localhost:5433/sonder"
@@ -29,12 +33,29 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+_is_production = settings.environment.lower() == "production"
+
 if settings.jwt_secret == _DEFAULT_JWT_SECRET:
-    logger.warning(
-        "SONDER_JWT_SECRET is using the default value. "
-        "Set a secure random secret via environment variable."
-    )
+    if _is_production:
+        logger.critical(
+            "SONDER_JWT_SECRET is using the default value in production. "
+            "Set a secure random secret via environment variable."
+        )
+        sys.exit(1)
+    else:
+        logger.warning(
+            "SONDER_JWT_SECRET is using the default value. "
+            "Set a secure random secret via environment variable."
+        )
+
 if not settings.google_client_id:
-    logger.warning(
-        "SONDER_GOOGLE_CLIENT_ID is not set. Google OAuth will not work."
-    )
+    if _is_production:
+        logger.critical(
+            "SONDER_GOOGLE_CLIENT_ID is not set in production. "
+            "Google OAuth will not work."
+        )
+        sys.exit(1)
+    else:
+        logger.warning(
+            "SONDER_GOOGLE_CLIENT_ID is not set. Google OAuth will not work."
+        )

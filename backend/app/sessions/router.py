@@ -12,12 +12,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_tutor
-from app.auth.jwt import create_access_token
+from app.auth.jwt import create_student_token
 from app.database import get_db
 from app.models.models import MetricSnapshot, Nudge, Session, SessionStatus, SessionSummary, Tutor
 from app.summary.generator import generate_summary
 
 router = APIRouter(tags=["sessions"])
+
+
+MAX_JOIN_CODE_RETRIES = 5
 
 
 def _generate_join_code() -> str:
@@ -92,28 +95,38 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new tutoring session."""
-    join_code = _generate_join_code()
+    from sqlalchemy.exc import IntegrityError
+
     now = datetime.now(UTC)
 
-    session = Session(
-        id=uuid.uuid4(),
-        tutor_id=tutor.id,
-        join_code=join_code,
-        status=SessionStatus.WAITING,
-        subject=body.subject,
-        session_type_label=body.session_type_label,
-        start_time=now,
-    )
-    db.add(session)
-    await db.commit()
-    await db.refresh(session)
-
-    return CreateSessionResponse(
-        session_id=str(session.id),
-        join_code=session.join_code,
-        join_url=f"/join/{session.join_code}",
-        start_time=now.isoformat(),
-    )
+    for attempt in range(MAX_JOIN_CODE_RETRIES):
+        join_code = _generate_join_code()
+        session = Session(
+            id=uuid.uuid4(),
+            tutor_id=tutor.id,
+            join_code=join_code,
+            status=SessionStatus.WAITING,
+            subject=body.subject,
+            session_type_label=body.session_type_label,
+            start_time=now,
+        )
+        db.add(session)
+        try:
+            await db.commit()
+            await db.refresh(session)
+            return CreateSessionResponse(
+                session_id=str(session.id),
+                join_code=session.join_code,
+                join_url=f"/join/{session.join_code}",
+                start_time=now.isoformat(),
+            )
+        except IntegrityError:
+            await db.rollback()
+            if attempt == MAX_JOIN_CODE_RETRIES - 1:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to generate unique join code. Please try again.",
+                )
 
 
 @router.get("/sessions/{session_id}")
@@ -227,8 +240,8 @@ async def join_session(body: JoinSessionRequest, db: AsyncSession = Depends(get_
     session.join_time = datetime.now(UTC)
     await db.commit()
 
-    # Create a participant token (short-lived JWT scoped to this session)
-    participant_token = create_access_token(tutor_id=f"student:{session.id}")
+    # Create a participant token (JWT with role=student, scoped to this session)
+    participant_token = create_student_token(session_id=str(session.id))
 
     return JoinSessionResponse(
         session_id=str(session.id),

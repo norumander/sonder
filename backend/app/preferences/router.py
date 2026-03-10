@@ -1,7 +1,7 @@
 """Tutor preferences API routes."""
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_tutor
@@ -16,14 +16,14 @@ VALID_NUDGE_TYPES = {nt.value for nt in NudgeType}
 class NudgeThresholds(BaseModel):
     """Configurable nudge trigger thresholds."""
 
-    student_silent_minutes: float
-    eye_contact_low: float
-    eye_contact_duration_s: float
-    tutor_talk_pct: float
-    tutor_talk_duration_minutes: float
-    energy_drop_pct: float
-    interruption_count: int
-    interruption_window_minutes: float
+    student_silent_minutes: float = Field(gt=0, le=60)
+    eye_contact_low: float = Field(ge=0, le=1)
+    eye_contact_duration_s: float = Field(gt=0, le=300)
+    tutor_talk_pct: float = Field(gt=0, le=1)
+    tutor_talk_duration_minutes: float = Field(gt=0, le=60)
+    energy_drop_pct: float = Field(gt=0, le=1)
+    interruption_count: int = Field(ge=1, le=100)
+    interruption_window_minutes: float = Field(gt=0, le=60)
 
 
 class PreferencesBody(BaseModel):

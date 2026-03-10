@@ -3,16 +3,15 @@
 import asyncio
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from starlette.testclient import TestClient
 
-from app.auth.jwt import create_access_token
+from app.auth.jwt import create_access_token, create_student_token
 from app.models.base import Base
 from app.models.models import Session, SessionStatus, Tutor
-
 
 # --- Fixtures ---
 
@@ -95,7 +94,7 @@ async def tutor_and_session(db_session):
     await db_session.commit()
 
     tutor_token = create_access_token(tutor_id=str(tutor.id))
-    student_token = create_access_token(tutor_id=f"student:{session.id}")
+    student_token = create_student_token(session_id=str(session.id))
 
     return tutor, session, tutor_token, student_token
 

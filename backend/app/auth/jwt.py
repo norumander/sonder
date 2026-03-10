@@ -9,14 +9,24 @@ from app.config import settings
 
 def create_access_token(tutor_id: str) -> str:
     """Create a JWT access token for a tutor."""
-    return _create_token_with_expiry(tutor_id, hours=settings.jwt_expiration_hours)
+    return _create_token(sub=tutor_id, role="tutor", hours=settings.jwt_expiration_hours)
+
+
+def create_student_token(session_id: str) -> str:
+    """Create a JWT access token for a student scoped to a specific session."""
+    return _create_token(sub=session_id, role="student", hours=settings.jwt_expiration_hours)
+
+
+def _create_token(sub: str, role: str, hours: int) -> str:
+    """Create a JWT with subject, role, and expiry."""
+    expire = datetime.now(UTC) + timedelta(hours=hours)
+    payload = {"sub": sub, "role": role, "exp": expire}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 def _create_token_with_expiry(tutor_id: str, hours: int) -> str:
-    """Create a JWT with a specific expiry (used in testing for expired tokens)."""
-    expire = datetime.now(UTC) + timedelta(hours=hours)
-    payload = {"sub": tutor_id, "exp": expire}
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    """Create a tutor JWT with a specific expiry (used in testing for expired tokens)."""
+    return _create_token(sub=tutor_id, role="tutor", hours=hours)
 
 
 def decode_access_token(token: str) -> dict | None:

@@ -45,8 +45,8 @@ RECONNECT_TIMEOUT_S = 30  # Grace period before auto-ending on student disconnec
 def _authenticate(token: str | None, session_id: str) -> tuple[str, str] | None:
     """Validate token and return (role, subject_id) or None.
 
-    Tutor tokens have sub=<tutor_uuid>.
-    Student tokens have sub=student:<session_uuid>.
+    Tutor tokens have role=tutor, sub=<tutor_uuid>.
+    Student tokens have role=student, sub=<session_uuid>.
     """
     if not token:
         return None
@@ -56,16 +56,15 @@ def _authenticate(token: str | None, session_id: str) -> tuple[str, str] | None:
         return None
 
     sub: str = payload.get("sub", "")
+    role: str = payload.get("role", "")
 
-    if sub.startswith("student:"):
+    if role == "student":
         # Student token — verify it matches this session
-        token_session_id = sub.removeprefix("student:")
-        if token_session_id != session_id:
+        if sub != session_id:
             return None
-        return ("student", token_session_id)
+        return ("student", sub)
 
-    # Tutor token — sub is tutor_id
-    if sub:
+    if role == "tutor" and sub:
         return ("tutor", sub)
 
     return None
