@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Server
     cors_origins: list[str] = ["http://localhost:5173"]
 
-    model_config = {"env_prefix": "SONDER_", "env_file": ".env"}
+    model_config = {"env_prefix": "SONDER_", "env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()
