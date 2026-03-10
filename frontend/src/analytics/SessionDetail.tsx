@@ -42,13 +42,36 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
+interface MetricAggregate {
+  avg: number;
+  min: number;
+  max: number;
+}
+
+const EMPTY_AGGREGATE: MetricAggregate = { avg: 0, min: 0, max: 0 };
+
 function MetricSummarySection({
   label,
   metrics,
 }: {
   label: string;
-  metrics: { eye_contact: { avg: number; min: number; max: number }; energy: { avg: number; min: number; max: number } };
+  metrics: { eye_contact?: MetricAggregate; energy?: MetricAggregate } | Record<string, never>;
 }) {
+  const eyeContact = metrics.eye_contact ?? EMPTY_AGGREGATE;
+  const energy = metrics.energy ?? EMPTY_AGGREGATE;
+  const hasData = !!metrics.eye_contact || !!metrics.energy;
+
+  if (!hasData) {
+    return (
+      <div className="flex-1" data-testid={`summary-${label.toLowerCase()}`}>
+        <h4 className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-600">
+          {label}
+        </h4>
+        <p className="text-sm text-gray-400">No metric data available</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1" data-testid={`summary-${label.toLowerCase()}`}>
       <h4 className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-600">
@@ -57,22 +80,22 @@ function MetricSummarySection({
       <div className="space-y-1 text-sm">
         <div className="flex justify-between">
           <span className="text-gray-500">Eye Contact (avg)</span>
-          <span className="font-medium">{Math.round(metrics.eye_contact.avg * 100)}%</span>
+          <span className="font-medium">{Math.round(eyeContact.avg * 100)}%</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-500">Eye Contact (range)</span>
           <span className="text-gray-600">
-            {Math.round(metrics.eye_contact.min * 100)}% – {Math.round(metrics.eye_contact.max * 100)}%
+            {Math.round(eyeContact.min * 100)}% – {Math.round(eyeContact.max * 100)}%
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-500">Energy (avg)</span>
-          <span className="font-medium">{Math.round(metrics.energy.avg * 100)}%</span>
+          <span className="font-medium">{Math.round(energy.avg * 100)}%</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-500">Energy (range)</span>
           <span className="text-gray-600">
-            {Math.round(metrics.energy.min * 100)}% – {Math.round(metrics.energy.max * 100)}%
+            {Math.round(energy.min * 100)}% – {Math.round(energy.max * 100)}%
           </span>
         </div>
       </div>

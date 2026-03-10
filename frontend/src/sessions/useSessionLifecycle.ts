@@ -33,7 +33,9 @@ export function useSessionLifecycle(
   const endSession = useCallback(async () => {
     if (!sessionIdRef.current) return;
 
-    // Send end_session via WebSocket for real-time broadcast
+    // Send end_session via WebSocket for real-time broadcast.
+    // The backend will broadcast session_ended to both participants,
+    // which our message listener below will catch to update state.
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "end_session" }));
     }
@@ -49,8 +51,13 @@ export function useSessionLifecycle(
       // already triggered the server-side session end.
     }
 
-    setSessionEnded(true);
-    setEndReason("tutor_ended");
+    // Set ended state after a short delay to allow the backend to
+    // broadcast session_ended to the student before this component
+    // unmounts (which may close the tutor's WebSocket).
+    setTimeout(() => {
+      setSessionEnded(true);
+      setEndReason("tutor_ended");
+    }, 500);
   }, []);
 
   // Listen for session_ended WebSocket messages

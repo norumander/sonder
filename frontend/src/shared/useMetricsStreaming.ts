@@ -37,7 +37,7 @@ export function useMetricsStreaming(
   wsRef.current = ws;
 
   useEffect(() => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!isStreaming) return;
 
     const intervalId = setInterval(() => {
       const currentWs = wsRef.current;
@@ -58,7 +58,7 @@ export function useMetricsStreaming(
     return () => {
       clearInterval(intervalId);
     };
-  }, [ws]);
+  }, [isStreaming]);
 
   return { isStreaming };
 }
