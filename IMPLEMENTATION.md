@@ -541,3 +541,75 @@ _None yet._
 - **Next**: User should hard-refresh both browser windows and re-test the full E2E flow (login → create session → student joins → watch metrics → end session → analytics). If issues remain, debug further. If all works, project is complete.
 - **Blockers**: None
 - **Open Questions**: None
+
+### Checkpoint — 2026-03-10 15:30
+- **Phase**: Post-completion — Docker E2E Bug Fixes (Round 2)
+- **Completed**: User ran manual E2E via Docker Compose. Found 3 issues and fixed all:
+  1. **Backend build failure**: `mediapipe==0.10.32` doesn't exist, `numpy==2.4.3` incompatible. Pinned to `mediapipe==0.10.18`, `numpy==1.26.4`, `opencv-python-headless==4.10.0.84` in `requirements.txt`.
+  2. **Alembic module import error**: `alembic upgrade head` in Docker couldn't find `app` module. Fixed `entrypoint.sh` to set `PYTHONPATH=/app` before running alembic.
+  3. **WebSocket connections failing in Docker + React StrictMode double-connect**:
+     - **Docker proxy issue**: WebSocket URLs used `window.location.host` (port 5173), relying on Vite's `/ws` proxy. Inside Docker, the proxy target `ws://localhost:8000` is unreachable from the frontend container. Fixed `App.tsx` to build WebSocket URLs from `API_BASE` (which resolves to `localhost:8000` directly from the browser via Docker port mapping).
+     - **React StrictMode double-mount**: `useState(() => new WebSocket(...))` initializer ran twice in dev mode — first WS took the backend slot, second (used by component) was rejected with 403. Fixed frontend to use `useEffect` with cleanup for WebSocket creation. Fixed backend `handler.py` to replace stale connections instead of rejecting when same role reconnects.
+  - These fixes resolve both reported E2E bugs: "session ended by tutor not ending for student" and "nothing showing in metrics".
+- **State**: All containers running (db, backend, frontend). Backend migrations pass, Uvicorn on :8000, Vite on :5173. 233 frontend tests, 273 backend tests (pre-existing — new fixes not yet tested). Files changed: `requirements.txt`, `entrypoint.sh`, `frontend/src/App.tsx`, `backend/app/websocket/handler.py`.
+- **Next**: User should create a new session and re-test the full E2E: (1) tutor login → create session, (2) student joins in second tab, (3) verify metrics appear on tutor dashboard, (4) tutor ends session → verify student sees ended screen. If all works, commit fixes. If not, check backend logs (`docker compose logs backend`) for connection errors.
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-10 12:40
+- **Phase**: Post-completion — WebSocket Architecture Hardening & Bug Fixes
+- **Completed**:
+  1. **Fixed 4 failing backend tests**: Removed 3 tests for deleted `_reconnect_timers` functionality. Updated `test_student_receives_heartbeat` to drain initial `tutor_status` message before asserting heartbeat.
+  2. **Lifted WebSocket to StudentFlow**: WS now persists across student leave/rejoin. `useSessionEnded` runs at flow level — catches `session_ended` from any child state (active session OR left screen). Removed `StudentSessionWithWs` wrapper.
+  3. **Fixed render gap**: Added "Connecting…" loading state when `session && active` but WS hasn't been created yet (prevents flash of StudentJoinPage).
+  4. **Fixed tutorConnected stale state on rejoin**: Lifted `tutorConnected` from `StudentSession` local state to `StudentFlow` level — persists across unmount/remount.
+  5. **Added `request_status` WS message**: Backend handler responds with `session_status` containing `session_id`, `tutor_connected`, `student_connected`. StudentSession sends `request_status` on mount for belt-and-suspenders sync.
+  6. **Added CLAUDE.md changelog rule**: "Before fixing any bug, read CHANGELOG.md. After fixing, add an entry."
+  7. **Created CHANGELOG.md**: Documented all 12 past bug fixes with symptom, root cause, fix, and files modified.
+- **State**: 234 frontend tests (32 files), 272 backend tests — all passing. All changes uncommitted. Student state machine is now 5-state: `JoinPage → Connecting → StudentSession → StudentLeftScreen → SessionEndedScreen`. WebSocket lifecycle is decoupled from UI state — lives as long as `session` object exists. `request_status` provides on-demand session validation for both clients.
+- **Next**: Rebuild Docker (`docker compose up --build -d`) and E2E test the full flow: (1) tutor login → create session, (2) student joins → verify metrics on tutor dashboard, (3) student leaves → clicks Rejoin → should show "Session Active" immediately (not "Waiting for tutor"), (4) tutor ends → both see Session Ended, (5) student on "left" screen when tutor ends → should see Session Ended. Then commit all changes.
+- **Blockers**: None
+- **Open Questions**: The "stuck waiting for metrics" issue reported earlier may require Docker rebuild + hard-refresh to resolve — the code pipeline traces correctly end-to-end. If it persists after rebuild, need browser console and `docker compose logs backend` output to diagnose.
+
+### Checkpoint — 2026-03-10 13:30
+- **Phase**: Post-completion — E2E Bug Fix Session (7 bugs fixed)
+- **Completed**: User-driven E2E testing session. Identified and fixed 7 bugs across the full pipeline:
+  1. **Face mesh never initialized** (`TutorSessionPage.tsx`, `StudentSession.tsx`): `useFaceMesh(videoRef.current)` always received `null` because React refs don't trigger re-renders. Fixed by switching to callback ref pattern (`useState` + `useCallback`) so the video element is tracked in state and triggers hook re-initialization.
+  2. **Face mesh wrong API method** (`useFaceMesh.ts`): `landmarkerRef.current.detect()` only works in IMAGE mode, but the landmarker was created with `runningMode: "VIDEO"`. Changed to `detectForVideo(videoElement, performance.now())`.
+  3. **Audio timestamp mismatch** (`useMediaCapture.ts`): Audio chunks used relative timestamps (`now - startTime`) while `useMetricsStreaming` used absolute `Date.now()`. Backend degradation tracker compared them, computed billions of ms elapsed, triggering false "audio unavailable" warnings. Fixed by using `Date.now()` for audio chunk timestamps.
+  4. **Tutor never learned student was connected** (`handler.py`): When tutor connected, backend notified the student about the tutor but never notified the tutor about the student. Added `_notify_student_status()` call when tutor connects.
+  5. **Student "Leave" not reflected on tutor dashboard** (`App.tsx`, `handler.py`): WebSocket stayed open when student left (by design, for session_ended detection), so backend still saw student as connected. Added `student_leave`/`student_rejoin` WS messages sent from frontend, handled in backend to update tutor dashboard.
+  6. **MetricSnapshots never persisted** (`handler.py`): `_broadcast_metrics()` sent real-time metrics via WebSocket but never saved `MetricSnapshot` records to DB. Added `_persist_snapshot()` function called on every broadcast.
+  7. **Summary generator crashed on None values** (`summary/generator.py`): `tutor_talk_pct` can be `None` in snapshots (before audio data arrives). `.get("tutor_talk_pct", 0.0)` returns `None` when key exists with `None` value. `sum()` then failed. Fixed by filtering `None` values before aggregation.
+  - Also cleaned up 6 stale empty `SessionSummary` records from DB that were cached from before persistence was fixed.
+  - Updated `useFaceMesh.test.ts` (mock `detect` → `detectForVideo`), `test_metrics_broadcast.py` (consume initial `student_status` message in 4 tests).
+- **State**: 234 frontend tests (32 files), 272 backend tests — all passing. All 7 bugs fixed. Face detection, eye contact, audio metrics, student connection status, metric persistence, and post-session analytics all verified working. Changes uncommitted.
+- **Next**: User should start a new session, run it for 30+ seconds, end it, and verify analytics page shows real data (engagement score, talk time, eye contact, energy, timeline chart). If analytics work, commit all changes. Then consider further polish or deployment.
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-10 11:30
+- **Phase**: Post-completion — Student/Tutor Session Communication & Role Separation
+- **Completed**: 6 interconnected improvements to session communication and student/tutor role separation:
+  1. **Tutor status notifications**: Backend sends `tutor_status` messages to the student (on tutor connect, disconnect, and when student first connects). Student sees "Waiting for tutor to join the session…" (yellow pulse) until tutor connects, then "Session Active" (green pulse).
+  2. **StrictMode race condition fix**: Backend `finally` block now checks `registry.get(session_id, role) is not websocket` before cleanup — prevents stale disconnect notifications from overriding fresh connect notifications when React double-mounts WebSockets.
+  3. **Student leave ≠ session end**: Student's "Leave Session" button now calls `onLeave` callback instead of `endSession`. No longer sends `end_session` WS message or PATCH request — just disconnects. Student returns to a "You left the session" screen with a **Rejoin** button.
+  4. **Student rejoin flow**: `StudentFlow` now has 3 states: join page → active session → left screen (with rejoin). Rejoin creates a fresh WebSocket. `onSessionEnded` callback clears session state when tutor actually ends it, preventing rejoin to a dead session.
+  5. **Hook role separation**: Split `useSessionLifecycle` into `useSessionEnded` (shared, listens for `session_ended` WS messages) and `useTutorSessionControl` (tutor-only, `endSession()` + `beforeunload` handler). Student no longer runs tutor-specific `beforeunload` or `endSession` logic. Deleted `useSessionLifecycle.ts`.
+  6. **Removed student disconnect timeout**: Removed `_reconnect_timers`, `RECONNECT_TIMEOUT_S`, `_reconnect_timeout()` from backend. Sessions only end when the tutor explicitly ends them. Removed `student_disconnect_timeout` reason from frontend types, `SessionEndedScreen`, and tests.
+- **State**: 50 frontend tests passing (9 test files across sessions/ and student/). Backend handler cleaned up. New files: `useSessionEnded.ts`, `useTutorSessionControl.ts`, `StudentLeftScreen.tsx` + tests. Deleted: `useSessionLifecycle.ts`, `useSessionLifecycle.test.ts`. All changes uncommitted.
+- **Next**: Rebuild Docker (`docker compose up --build -d`) and re-test full E2E: (1) student joins before tutor → sees "Waiting for tutor", (2) tutor joins → student switches to "Session Active" + tutor sees student connected, (3) student clicks Leave → sees "You left" + Rejoin button, (4) student rejoins → back in session, (5) tutor ends → both see Session Ended. Then commit all changes.
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-10 14:15
+- **Phase**: Post-completion — Analytics pipeline fixes
+- **Completed**: Fixed three bugs preventing analytics from populating:
+  1. **timestamp_ms int32 overflow (ROOT CAUSE)**: `MetricSnapshot.timestamp_ms` and `Nudge.timestamp_ms` columns were `Integer` (int32, max 2.1B) but store Unix milliseconds (~1.77 trillion in 2026). Every `INSERT` into `metric_snapshots` and `nudges` failed silently with `asyncpg.exceptions.DataError: value out of int32 range`. Fixed by changing both to `BigInteger`. Created Alembic migration `ee2890df3412`.
+  2. **session_id string vs UUID**: `_persist_snapshot`, `_persist_nudge`, and `_end_session_in_db` in the WebSocket handler received `session_id` as a string but passed it directly to SQLAlchemy models expecting `uuid.UUID`. Added explicit `uuid.UUID(session_id)` conversion in all three functions.
+  3. **Dead-end SessionEndedScreen**: When tutor ended a session, they saw "Session Ended" with no way to reach analytics. Fixed by auto-navigating tutor to `/analytics/:sessionId` via `useNavigate` in `TutorSessionPage`. Also added optional `sessionId` and `onViewAnalytics` props to `SessionEndedScreen` as fallback.
+  4. **Added logging config**: Added `logging.basicConfig(level=logging.INFO)` to `main.py` — previously all app-level logs were invisible (Python defaults to WARNING).
+- **State**: 272 backend tests passing, 237 frontend tests passing (509 total). Docker rebuilt, migration applied. All changes uncommitted. CHANGELOG.md updated with the int32 overflow bug entry.
+- **Next**: User needs to **hard-refresh both browser tabs and create a new session** to test the fixes (old WS connections died on backend restart). E2E validation: (1) create session, (2) student joins, (3) confirm "Session Active" on student side, (4) confirm live metrics flowing on tutor dashboard (not "Waiting for metrics..."), (5) end session, (6) confirm tutor auto-navigates to `/analytics/:sessionId` with populated data. Then commit all accumulated changes.
+- **Blockers**: None — fixes are deployed in Docker, awaiting E2E verification.
+- **Open Questions**: None

@@ -2,7 +2,7 @@
 set -e
 
 echo "Running database migrations..."
-alembic upgrade head
+PYTHONPATH=/app alembic upgrade head
 
 echo "Starting application..."
 exec "$@"

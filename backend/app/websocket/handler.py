@@ -34,12 +34,8 @@ degradation_tracker = DegradationTracker()
 # Per-session tutor preferences cache (loaded on connect, updated per broadcast)
 _session_preferences: dict[str, dict] = {}
 
-# Per-session student reconnection timers (session_id → asyncio.Task)
-_reconnect_timers: dict[str, asyncio.Task] = {}
-
 HEARTBEAT_INTERVAL_S = 10
 BROADCAST_INTERVAL_S = 1  # Server metrics broadcast frequency
-RECONNECT_TIMEOUT_S = 30  # Grace period before auto-ending on student disconnect
 
 
 def _authenticate(token: str | None, session_id: str) -> tuple[str, str] | None:
@@ -100,10 +96,13 @@ async def _persist_nudge(
 ) -> None:
     """Persist a nudge to the database. Fails silently if DB unavailable."""
     try:
+        import uuid as _uuid
+
+        sid = _uuid.UUID(session_id)
         factory = _get_session_factory()
         async with factory() as db:
             nudge = Nudge(
-                session_id=session_id,
+                session_id=sid,
                 timestamp_ms=timestamp_ms,
                 nudge_type=NudgeType(nudge_type),
                 message=message,
@@ -140,10 +139,32 @@ async def _send_to_tutor(session_id: str, message: dict) -> None:
             logger.debug("Failed to send to tutor: session=%s", session_id)
 
 
+async def _persist_snapshot(session_id: str, timestamp_ms: int, snapshot: dict) -> None:
+    """Persist a metric snapshot to the database. Fails silently if DB unavailable."""
+    try:
+        import uuid as _uuid
+
+        sid = _uuid.UUID(session_id)
+        factory = _get_session_factory()
+        async with factory() as db:
+            from app.models.models import MetricSnapshot
+
+            record = MetricSnapshot(
+                session_id=sid,
+                timestamp_ms=timestamp_ms,
+                metrics=snapshot,
+            )
+            db.add(record)
+            await db.commit()
+    except Exception:
+        logger.exception("Failed to persist snapshot for session=%s", session_id)
+
+
 async def _broadcast_metrics(session_id: str, timestamp_ms: int) -> None:
     """Build and send server_metrics snapshot to the tutor.
 
-    Also sends any pending attention_drift change messages and evaluates
+    Also persists the snapshot to the database for post-session analytics,
+    sends any pending attention_drift change messages, and evaluates
     nudge rules against the snapshot.
     """
     snapshot = metrics_aggregator.get_snapshot(session_id, timestamp_ms)
@@ -152,6 +173,9 @@ async def _broadcast_metrics(session_id: str, timestamp_ms: int) -> None:
         "type": "server_metrics",
         "data": snapshot,
     })
+
+    # Persist snapshot for post-session analytics
+    await _persist_snapshot(session_id, timestamp_ms, snapshot)
 
     # Send any drift state changes
     drift_changes = metrics_aggregator.get_drift_changes(session_id)
@@ -202,6 +226,14 @@ async def _notify_student_status(session_id: str, connected: bool) -> None:
     })
 
 
+async def _notify_tutor_status(session_id: str, connected: bool) -> None:
+    """Notify the student about tutor connection status changes."""
+    await _send_to_student(session_id, {
+        "type": "tutor_status",
+        "data": {"connected": connected},
+    })
+
+
 async def _send_to_student(session_id: str, message: dict) -> None:
     """Send a JSON message to the student's WebSocket if connected."""
     student_ws = registry.get(session_id, "student")
@@ -233,6 +265,9 @@ async def _end_session_in_db(session_id: str) -> None:
     double-end from overwriting the original end_time.
     """
     try:
+        import uuid as _uuid
+
+        sid = _uuid.UUID(session_id)
         factory = _get_session_factory()
         async with factory() as db:
             from sqlalchemy import update
@@ -242,7 +277,7 @@ async def _end_session_in_db(session_id: str) -> None:
             await db.execute(
                 update(SessionModel)
                 .where(
-                    SessionModel.id == session_id,
+                    SessionModel.id == sid,
                     SessionModel.status != SessionStatus.COMPLETED,
                 )
                 .values(
@@ -253,20 +288,6 @@ async def _end_session_in_db(session_id: str) -> None:
             await db.commit()
     except Exception:
         logger.warning("Failed to update session status: session=%s", session_id)
-
-
-async def _reconnect_timeout(session_id: str) -> None:
-    """Wait for reconnection timeout, then auto-end the session."""
-    try:
-        await asyncio.sleep(RECONNECT_TIMEOUT_S)
-        # Timeout expired — student didn't reconnect
-        logger.info("Student reconnect timeout: session=%s", session_id)
-        await _broadcast_session_ended(session_id, "student_disconnect_timeout")
-        await _end_session_in_db(session_id)
-    except asyncio.CancelledError:
-        pass  # Timer cancelled — student reconnected
-    finally:
-        _reconnect_timers.pop(session_id, None)
 
 
 @router.websocket("/ws/session/{session_id}")
@@ -312,8 +333,17 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
             await websocket.close(code=4001, reason="Authentication failed")
             return
 
-    # Check if slot is available
-    if registry.connection_count(session_id) >= 2 or registry.is_slot_occupied(session_id, role):
+    # If this role already has a connection, close the stale one and replace it.
+    # This handles React StrictMode double-mounts and browser reconnections.
+    if registry.is_slot_occupied(session_id, role):
+        old_ws = registry.get(session_id, role)
+        if old_ws is not None:
+            try:
+                await old_ws.close(code=4004, reason="Replaced by new connection")
+            except Exception:
+                pass
+            registry.remove(session_id, role)
+    elif registry.connection_count(session_id) >= 2:
         await websocket.close(code=4002, reason="Session full")
         return
 
@@ -326,12 +356,18 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
         _session_preferences[session_id] = DEFAULT_PREFERENCES
         asyncio.create_task(_load_tutor_preferences(session_id, subject_id))
 
-    # Notify tutor when student connects; cancel any pending reconnect timer
+    # Notify tutor when student connects
     if role == "student":
-        timer = _reconnect_timers.pop(session_id, None)
-        if timer is not None:
-            timer.cancel()
         await _notify_student_status(session_id, connected=True)
+        # Tell the student whether the tutor is already connected
+        tutor_connected = registry.get(session_id, "tutor") is not None
+        await _notify_tutor_status(session_id, connected=tutor_connected)
+
+    # Notify student when tutor connects, and tell tutor if student is already here
+    if role == "tutor":
+        await _notify_tutor_status(session_id, connected=True)
+        student_connected = registry.get(session_id, "student") is not None
+        await _notify_student_status(session_id, connected=student_connected)
 
     # Start heartbeat for student
     heartbeat_task = None
@@ -348,10 +384,25 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
 
             # Dispatch by message type
             msg_type = data.get("type")
-            if msg_type == "end_session" and role == "tutor":
+            if msg_type == "request_status":
+                tutor_ws = registry.get(session_id, "tutor")
+                student_ws = registry.get(session_id, "student")
+                await websocket.send_json({
+                    "type": "session_status",
+                    "data": {
+                        "session_id": session_id,
+                        "tutor_connected": tutor_ws is not None,
+                        "student_connected": student_ws is not None,
+                    },
+                })
+            elif msg_type == "end_session" and role == "tutor":
                 await _broadcast_session_ended(session_id, "tutor_ended")
                 await _end_session_in_db(session_id)
                 break
+            elif msg_type == "student_leave" and role == "student":
+                await _notify_student_status(session_id, connected=False)
+            elif msg_type == "student_rejoin" and role == "student":
+                await _notify_student_status(session_id, connected=True)
             elif msg_type == "audio_chunk":
                 audio_buffer.add_chunk(
                     session_id,
@@ -403,19 +454,22 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
     finally:
         if heartbeat_task is not None:
             heartbeat_task.cancel()
-        registry.remove(session_id, role)
 
-        # Notify tutor when student disconnects; start reconnection timer
-        if role == "student":
+        # Only clean up if this websocket is still the registered one.
+        # If it was replaced by a new connection (e.g. React StrictMode
+        # double-mount), the replacement already removed us from the registry
+        # and we must NOT remove the new connection or send stale notifications.
+        was_replaced = registry.get(session_id, role) is not websocket
+        if not was_replaced:
+            registry.remove(session_id, role)
+
+        # Notify tutor when student disconnects
+        if role == "student" and not was_replaced:
             await _notify_student_status(session_id, connected=False)
-            # Only start timer if tutor is still connected (session not already ended)
-            if registry.get(session_id, "tutor") is not None:
-                _reconnect_timers[session_id] = asyncio.create_task(
-                    _reconnect_timeout(session_id)
-                )
 
-        # Clean up all session state when tutor disconnects
-        if role == "tutor":
+        # Notify student when tutor disconnects; clean up session state
+        if role == "tutor" and not was_replaced:
+            await _notify_tutor_status(session_id, connected=False)
             _session_preferences.pop(session_id, None)
             nudge_engine.clear_session(session_id)
             degradation_tracker.clear_session(session_id)

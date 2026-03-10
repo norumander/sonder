@@ -14,12 +14,12 @@ python-jose[cryptography]==3.3.0
 # Audio analysis
 webrtcvad==2.0.10
 librosa==0.10.2.post1
-numpy==2.4.3
+numpy==1.26.4
 soundfile==0.12.1
 
 # Video analysis (pre-recorded mode)
-mediapipe==0.10.32
-opencv-python-headless==4.13.0.92
+mediapipe==0.10.18
+opencv-python-headless==4.10.0.84
 
 # Utilities
 pydantic==2.10.4

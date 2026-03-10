@@ -1,8 +1,16 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { TutorSessionPage } from "./TutorSessionPage";
 
 // Mock all hooks so we can test wiring in isolation
+
+const mockNavigate = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 const defaultMediaCapture = {
   videoStream: null,
@@ -21,7 +29,7 @@ const defaultLifecycle = {
 };
 
 const mockUseMediaCapture = vi.fn(() => defaultMediaCapture);
-const mockUseSessionLifecycle = vi.fn(() => defaultLifecycle);
+const mockUseTutorSessionControl = vi.fn(() => defaultLifecycle);
 
 vi.mock("../media/useMediaCapture", () => ({
   useMediaCapture: (...args: unknown[]) => mockUseMediaCapture(...args),
@@ -64,8 +72,8 @@ vi.mock("../dashboard/useServerMetrics", () => ({
   })),
 }));
 
-vi.mock("./useSessionLifecycle", () => ({
-  useSessionLifecycle: (...args: unknown[]) => mockUseSessionLifecycle(...args),
+vi.mock("./useTutorSessionControl", () => ({
+  useTutorSessionControl: (...args: unknown[]) => mockUseTutorSessionControl(...args),
 }));
 
 vi.mock("../nudges/NudgeContainer", () => ({
@@ -80,21 +88,19 @@ vi.mock("../dashboard/LiveDashboard", () => ({
   ),
 }));
 
-vi.mock("./SessionEndedScreen", () => ({
-  SessionEndedScreen: ({ reason }: { reason: string | null }) => (
-    <div data-testid="session-ended">{reason ?? "ended"}</div>
-  ),
-}));
+function renderWithRouter(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 describe("TutorSessionPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseMediaCapture.mockReturnValue(defaultMediaCapture);
-    mockUseSessionLifecycle.mockReturnValue(defaultLifecycle);
+    mockUseTutorSessionControl.mockReturnValue(defaultLifecycle);
   });
 
   it("renders the tutor session layout with dashboard and nudge container", () => {
-    render(
+    renderWithRouter(
       <TutorSessionPage sessionId="s1" token="jwt" ws={null} />,
     );
 
@@ -106,7 +112,7 @@ describe("TutorSessionPage", () => {
   });
 
   it("calls endSession when End Session button is clicked", () => {
-    render(
+    renderWithRouter(
       <TutorSessionPage sessionId="s1" token="jwt" ws={null} />,
     );
 
@@ -114,19 +120,18 @@ describe("TutorSessionPage", () => {
     expect(mockEndSession).toHaveBeenCalledTimes(1);
   });
 
-  it("shows SessionEndedScreen when session is over", () => {
-    mockUseSessionLifecycle.mockReturnValue({
+  it("navigates to analytics when session ends", () => {
+    mockUseTutorSessionControl.mockReturnValue({
       sessionEnded: true,
       endReason: "tutor_ended",
       endSession: vi.fn(),
     });
 
-    render(
+    renderWithRouter(
       <TutorSessionPage sessionId="s1" token="jwt" ws={null} />,
     );
 
-    expect(screen.getByTestId("session-ended")).toBeInTheDocument();
-    expect(screen.queryByTestId("tutor-session")).not.toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith("/analytics/s1", { replace: true });
   });
 
   it("shows error message when camera access fails", () => {
@@ -137,7 +142,7 @@ describe("TutorSessionPage", () => {
       micAvailable: false,
     });
 
-    render(
+    renderWithRouter(
       <TutorSessionPage sessionId="s1" token="jwt" ws={null} />,
     );
 
@@ -146,7 +151,7 @@ describe("TutorSessionPage", () => {
   });
 
   it("passes dashboard waiting state when no metrics yet", () => {
-    render(
+    renderWithRouter(
       <TutorSessionPage sessionId="s1" token="jwt" ws={null} />,
     );
 

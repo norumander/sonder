@@ -204,12 +204,16 @@ def test_client_metrics_stored_in_buffer(sync_client, tutor_and_session):
     with sync_client.websocket_connect(
         f"/ws/session/{session.id}?token={tutor_token}"
     ) as ws:
+        # Drain initial student_status sent on tutor connect
+        ws.receive_json()
+
         ws.send_json({
             "type": "client_metrics",
             "data": {"eye_contact_score": 0.85, "facial_energy": 0.6},
             "timestamp": 1000,
         })
-        ws.send_json({"type": "ping"})
+        # server_metrics response proves client_metrics was processed
+        ws.receive_json()
 
         # Check buffer while connection is open (tutor disconnect clears it)
         latest = client_metrics_buffer.get_latest(session_id, "tutor")
@@ -231,12 +235,16 @@ def test_client_metrics_null_values_accepted(sync_client, tutor_and_session):
     with sync_client.websocket_connect(
         f"/ws/session/{session.id}?token={tutor_token}"
     ) as ws:
+        # Drain initial student_status sent on tutor connect
+        ws.receive_json()
+
         ws.send_json({
             "type": "client_metrics",
             "data": {"eye_contact_score": None, "facial_energy": None},
             "timestamp": 2000,
         })
-        ws.send_json({"type": "ping"})
+        # server_metrics response proves client_metrics was processed
+        ws.receive_json()
 
         # Check buffer while connection is open (tutor disconnect clears it)
         latest = client_metrics_buffer.get_latest(session_id, "tutor")

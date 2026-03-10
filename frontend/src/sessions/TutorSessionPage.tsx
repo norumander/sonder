@@ -6,14 +6,14 @@
  * webcam preview alongside the real-time engagement dashboard.
  */
 
-import { useRef, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMediaCapture } from "../media/useMediaCapture";
 import { useFaceMesh } from "../metrics/useFaceMesh";
 import { useMetricsStreaming } from "../shared/useMetricsStreaming";
 import { useAudioStreaming } from "../shared/useAudioStreaming";
 import { useServerMetrics } from "../dashboard/useServerMetrics";
-import { useSessionLifecycle } from "./useSessionLifecycle";
-import { SessionEndedScreen } from "./SessionEndedScreen";
+import { useTutorSessionControl } from "./useTutorSessionControl";
 import { LiveDashboard } from "../dashboard/LiveDashboard";
 import { NudgeContainer } from "../nudges/NudgeContainer";
 
@@ -28,10 +28,18 @@ interface TutorSessionPageProps {
  * and an "End Session" button.
  */
 export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const navigate = useNavigate();
+
+  // Use callback ref so useFaceMesh receives the actual DOM element
+  // (plain refs don't trigger re-renders when .current changes).
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+  const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {
+    setVideoEl(node);
+  }, []);
+
   const { videoStream, status, error, consumeAudioChunks } = useMediaCapture();
-  const { eyeContactScore, facialEnergy } = useFaceMesh(videoRef.current);
-  const { sessionEnded, endReason, endSession } = useSessionLifecycle(sessionId, token, ws);
+  const { eyeContactScore, facialEnergy } = useFaceMesh(videoEl);
+  const { sessionEnded, endReason, endSession } = useTutorSessionControl(sessionId, token, ws);
   const serverMetricsState = useServerMetrics(ws);
 
   // Stream metrics and audio to server
@@ -51,14 +59,17 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
 
   // Attach video stream to <video> element
   useEffect(() => {
-    if (videoRef.current && videoStream) {
-      videoRef.current.srcObject = videoStream;
+    if (videoEl && videoStream) {
+      videoEl.srcObject = videoStream;
     }
-  }, [videoStream]);
+  }, [videoEl, videoStream]);
 
-  if (sessionEnded) {
-    return <SessionEndedScreen reason={endReason} />;
-  }
+  // Navigate to analytics when session ends
+  useEffect(() => {
+    if (sessionEnded) {
+      navigate(`/analytics/${sessionId}`, { replace: true });
+    }
+  }, [sessionEnded, sessionId, navigate]);
 
   if (status === "error") {
     return (
@@ -79,7 +90,7 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
       <div className="flex w-80 flex-col border-r bg-gray-900 p-4">
         <div className="rounded-lg overflow-hidden bg-black mb-4">
           <video
-            ref={videoRef}
+            ref={videoRefCallback}
             autoPlay
             playsInline
             muted

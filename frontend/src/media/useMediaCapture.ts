@@ -179,7 +179,7 @@ export function useMediaCapture(): MediaCaptureState {
 
       const chunk: AudioChunk = {
         data: base64,
-        timestamp: now - startTimeRef.current,
+        timestamp: now,
       };
 
       audioChunksRef.current = [...audioChunksRef.current, chunk];

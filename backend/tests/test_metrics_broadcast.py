@@ -118,6 +118,10 @@ def test_tutor_receives_server_metrics_after_client_metrics(sync_client, tutor_a
         with sync_client.websocket_connect(
             f"/ws/session/{session.id}?token={tutor_token}"
         ) as tutor_ws:
+            # Consume initial student_status sent on tutor connect
+            init_msg = tutor_ws.receive_json()
+            assert init_msg["type"] == "student_status"
+
             # Send client metrics from tutor
             tutor_ws.send_json({
                 "type": "client_metrics",
@@ -151,6 +155,11 @@ def test_student_does_not_receive_server_metrics(sync_client, tutor_and_session)
         with sync_client.websocket_connect(
             f"/ws/session/{session.id}?token={tutor_token}"
         ) as tutor_ws:
+            # Consume initial student_status sent on tutor connect
+            init_msg = tutor_ws.receive_json()
+            assert init_msg["type"] == "student_status"
+            assert init_msg["data"]["connected"] is False
+
             with sync_client.websocket_connect(
                 f"/ws/session/{session.id}?token={student_token}"
             ) as student_ws:
@@ -161,9 +170,10 @@ def test_student_does_not_receive_server_metrics(sync_client, tutor_and_session)
                     "timestamp": 1000,
                 })
 
-                # Tutor gets student_status first (student just connected)
+                # Tutor gets student_status (student just connected)
                 status_msg = tutor_ws.receive_json()
                 assert status_msg["type"] == "student_status"
+                assert status_msg["data"]["connected"] is True
 
                 # Then tutor should get server_metrics
                 msg = tutor_ws.receive_json()
@@ -192,6 +202,11 @@ def test_student_status_sent_on_connect(sync_client, tutor_and_session):
         with sync_client.websocket_connect(
             f"/ws/session/{session.id}?token={tutor_token}"
         ) as tutor_ws:
+            # Consume initial student_status sent on tutor connect
+            init_msg = tutor_ws.receive_json()
+            assert init_msg["type"] == "student_status"
+            assert init_msg["data"]["connected"] is False
+
             with sync_client.websocket_connect(
                 f"/ws/session/{session.id}?token={student_token}"
             ):
@@ -214,6 +229,11 @@ def test_student_status_sent_on_disconnect(sync_client, tutor_and_session):
         with sync_client.websocket_connect(
             f"/ws/session/{session.id}?token={tutor_token}"
         ) as tutor_ws:
+            # Consume initial student_status sent on tutor connect
+            init_msg = tutor_ws.receive_json()
+            assert init_msg["type"] == "student_status"
+            assert init_msg["data"]["connected"] is False
+
             with sync_client.websocket_connect(
                 f"/ws/session/{session.id}?token={student_token}"
             ):

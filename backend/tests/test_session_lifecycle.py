@@ -1,9 +1,7 @@
 """Tests for session lifecycle management — TASK-019."""
 
-import asyncio
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -108,56 +106,6 @@ def _drain_until(ws, msg_type: str, max_messages: int = 10) -> dict:
     raise AssertionError(f"Did not receive message of type '{msg_type}'")
 
 
-# --- Reconnection Timer Unit Tests ---
-
-
-def test_reconnect_timers_dict_exists():
-    """Handler module exposes reconnection timer tracking."""
-    from app.websocket.handler import _reconnect_timers
-
-    assert isinstance(_reconnect_timers, dict)
-
-
-@pytest.mark.asyncio
-async def test_reconnect_timeout_ends_session_after_delay():
-    """_reconnect_timeout waits then calls broadcast and DB update."""
-    from app.websocket import handler
-
-    session_id = str(uuid.uuid4())
-
-    with (
-        patch.object(handler, "_broadcast_session_ended", new_callable=AsyncMock) as mock_broadcast,
-        patch.object(handler, "_end_session_in_db", new_callable=AsyncMock) as mock_end_db,
-        patch.object(handler, "RECONNECT_TIMEOUT_S", 0.01),
-    ):
-        handler._reconnect_timers[session_id] = asyncio.create_task(
-            handler._reconnect_timeout(session_id)
-        )
-        await asyncio.sleep(0.05)
-
-        mock_broadcast.assert_called_once_with(session_id, "student_disconnect_timeout")
-        mock_end_db.assert_called_once_with(session_id)
-        assert session_id not in handler._reconnect_timers
-
-
-@pytest.mark.asyncio
-async def test_reconnect_timeout_cancelled_cleans_up():
-    """Cancelling the reconnect timer removes it from the dict."""
-    from app.websocket import handler
-
-    session_id = str(uuid.uuid4())
-
-    with patch.object(handler, "RECONNECT_TIMEOUT_S", 10):
-        task = asyncio.create_task(handler._reconnect_timeout(session_id))
-        handler._reconnect_timers[session_id] = task
-
-        await asyncio.sleep(0.01)
-        task.cancel()
-        await asyncio.sleep(0.01)
-
-        assert session_id not in handler._reconnect_timers
-
-
 # --- Student Reconnection Integration Test ---
 
 
@@ -231,3 +179,42 @@ def test_end_session_only_tutor_can_trigger(sync_client, tutor_and_session):
             student_ws.send_json({"type": "end_session"})
             # Student can still send other messages (connection not closed)
             student_ws.send_json({"type": "client_metrics", "data": {"eye_contact_score": 0.5}})
+
+
+# --- Session Status Request Tests ---
+
+
+def test_request_status_returns_both_connected(sync_client, tutor_and_session):
+    """request_status returns correct connection state for both roles."""
+    _, session, tutor_token, student_token = tutor_and_session
+
+    with sync_client.websocket_connect(
+        f"/ws/session/{session.id}?token={tutor_token}"
+    ):
+        with sync_client.websocket_connect(
+            f"/ws/session/{session.id}?token={student_token}"
+        ) as student_ws:
+            # Drain any initial messages (tutor_status on connect)
+            _drain_until(student_ws, "tutor_status")
+
+            student_ws.send_json({"type": "request_status"})
+            msg = _drain_until(student_ws, "session_status")
+            assert msg["data"]["session_id"] == str(session.id)
+            assert msg["data"]["tutor_connected"] is True
+            assert msg["data"]["student_connected"] is True
+
+
+def test_request_status_tutor_not_connected(sync_client, tutor_and_session):
+    """request_status reports tutor as disconnected when only student is connected."""
+    _, session, _, student_token = tutor_and_session
+
+    with sync_client.websocket_connect(
+        f"/ws/session/{session.id}?token={student_token}"
+    ) as student_ws:
+        # Drain the initial tutor_status (tutor not connected)
+        _drain_until(student_ws, "tutor_status")
+
+        student_ws.send_json({"type": "request_status"})
+        msg = _drain_until(student_ws, "session_status")
+        assert msg["data"]["tutor_connected"] is False
+        assert msg["data"]["student_connected"] is True

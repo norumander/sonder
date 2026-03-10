@@ -202,13 +202,17 @@ def test_audio_chunk_stored_in_buffer(sync_client, tutor_and_session):
     with sync_client.websocket_connect(
         f"/ws/session/{session.id}?token={tutor_token}"
     ) as ws:
+        # Drain initial student_status sent on tutor connect
+        ws.receive_json()
+
         ws.send_json({
             "type": "audio_chunk",
             "data": b64_data,
             "timestamp": 1000,
         })
-        # Follow-up ensures the audio_chunk was processed
-        ws.send_json({"type": "ping"})
+        # Send request_status to synchronize — its response proves audio_chunk was processed
+        ws.send_json({"type": "request_status"})
+        ws.receive_json()  # session_status response
 
         # Check buffer while connection is open (tutor disconnect clears it)
         chunks = audio_buffer.get_chunks(session_id, "tutor")

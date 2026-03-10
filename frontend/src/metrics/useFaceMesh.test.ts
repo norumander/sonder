@@ -3,11 +3,11 @@ import { renderHook, waitFor, act } from "@testing-library/react";
 import { useFaceMesh } from "./useFaceMesh";
 
 // Mock the @mediapipe/tasks-vision module
-const { mockDetect, mockClose, mockCreateFromOptions } = vi.hoisted(() => {
-  const detect = vi.fn();
+const { mockDetectForVideo, mockClose, mockCreateFromOptions } = vi.hoisted(() => {
+  const detectForVideo = vi.fn();
   const close = vi.fn();
   const createFromOptions = vi.fn();
-  return { mockDetect: detect, mockClose: close, mockCreateFromOptions: createFromOptions };
+  return { mockDetectForVideo: detectForVideo, mockClose: close, mockCreateFromOptions: createFromOptions };
 });
 
 vi.mock("@mediapipe/tasks-vision", () => ({
@@ -36,11 +36,11 @@ function createMockVideo(): HTMLVideoElement {
 
 describe("useFaceMesh", () => {
   beforeEach(() => {
-    mockDetect.mockReset();
+    mockDetectForVideo.mockReset();
     mockClose.mockReset();
     mockCreateFromOptions.mockReset();
     mockCreateFromOptions.mockResolvedValue({
-      detect: mockDetect,
+      detectForVideo: mockDetectForVideo,
       close: mockClose,
     });
   });
@@ -59,12 +59,12 @@ describe("useFaceMesh", () => {
 
   it("returns null metrics when face not detected", async () => {
     const mockVideo = createMockVideo();
-    mockDetect.mockReturnValue({ faceLandmarks: [] });
+    mockDetectForVideo.mockReturnValue({ faceLandmarks: [] });
 
     const { result } = renderHook(() => useFaceMesh(mockVideo));
 
     await waitFor(() => {
-      expect(mockDetect).toHaveBeenCalled();
+      expect(mockDetectForVideo).toHaveBeenCalled();
     });
 
     expect(result.current.faceDetected).toBe(false);
@@ -88,7 +88,7 @@ describe("useFaceMesh", () => {
     landmarks[468] = { x: 0.4, y: 0.4, z: 0 };
     landmarks[473] = { x: 0.6, y: 0.4, z: 0 };
 
-    mockDetect.mockReturnValue({ faceLandmarks: [landmarks] });
+    mockDetectForVideo.mockReturnValue({ faceLandmarks: [landmarks] });
 
     const { result } = renderHook(() => useFaceMesh(mockVideo));
 
@@ -101,13 +101,13 @@ describe("useFaceMesh", () => {
 
   it("cleans up face landmarker on unmount", async () => {
     const mockVideo = createMockVideo();
-    mockDetect.mockReturnValue({ faceLandmarks: [] });
+    mockDetectForVideo.mockReturnValue({ faceLandmarks: [] });
 
     const { unmount } = renderHook(() => useFaceMesh(mockVideo));
 
     // Wait for initialization to complete
     await waitFor(() => {
-      expect(mockDetect).toHaveBeenCalled();
+      expect(mockDetectForVideo).toHaveBeenCalled();
     });
 
     act(() => {

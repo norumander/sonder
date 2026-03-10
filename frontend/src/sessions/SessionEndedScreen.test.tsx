@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { SessionEndedScreen } from "./SessionEndedScreen";
 
 describe("SessionEndedScreen", () => {
@@ -15,15 +15,27 @@ describe("SessionEndedScreen", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows timeout reason", () => {
-    render(<SessionEndedScreen reason="student_disconnect_timeout" />);
-    expect(
-      screen.getByText(/student disconnected/i),
-    ).toBeInTheDocument();
-  });
-
   it("shows generic message for null reason", () => {
     render(<SessionEndedScreen reason={null} />);
     expect(screen.getByText("Session Ended")).toBeInTheDocument();
+  });
+
+  it("does not show analytics link without sessionId", () => {
+    render(<SessionEndedScreen reason={null} />);
+    expect(screen.queryByTestId("view-analytics")).not.toBeInTheDocument();
+  });
+
+  it("shows analytics link when sessionId is provided", () => {
+    render(<SessionEndedScreen reason={null} sessionId="abc-123" />);
+    const link = screen.getByTestId("view-analytics");
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/analytics/abc-123");
+  });
+
+  it("calls onViewAnalytics callback when provided", () => {
+    const handleClick = vi.fn();
+    render(<SessionEndedScreen reason={null} onViewAnalytics={handleClick} />);
+    fireEvent.click(screen.getByTestId("view-analytics"));
+    expect(handleClick).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,7 +2,7 @@
  * Root application component with routing, authentication, and navigation.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -14,9 +14,12 @@ import {
   useParams,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/useAuth";
+import { API_BASE } from "./shared/config";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { CreateSessionPage } from "./sessions/CreateSessionPage";
+import { SessionEndedScreen } from "./sessions/SessionEndedScreen";
+import { useSessionEnded } from "./sessions/useSessionEnded";
 import { TutorSessionPage } from "./sessions/TutorSessionPage";
 import { UploadForm } from "./sessions/UploadForm";
 import { AnalyticsListPage, AnalyticsDetailPage } from "./analytics/AnalyticsPage";
@@ -25,6 +28,7 @@ import { NudgeSettings } from "./settings/NudgeSettings";
 import { usePreferences } from "./settings/usePreferences";
 import { StudentJoinPage } from "./student/StudentJoinPage";
 import { StudentSession } from "./student/StudentSession";
+import { StudentLeftScreen } from "./student/StudentLeftScreen";
 
 function App() {
   return (
@@ -110,47 +114,118 @@ function NavLayout() {
 
 function StudentFlow() {
   const { code } = useParams<{ code?: string }>();
-  const [joined, setJoined] = useState<{
+  const [session, setSession] = useState<{
     sessionId: string;
     participantToken: string;
   } | null>(null);
+  const [active, setActive] = useState(false);
 
-  if (joined) {
-    // Student has joined — connect WebSocket and show session view
+  // WebSocket lives at this level — stays open as long as session exists,
+  // regardless of active/left state. This ensures session_ended is always received.
+  const [ws, setWs] = useState<WebSocket | null>(null);
+
+  useEffect(() => {
+    if (!session) {
+      setWs(null);
+      return;
+    }
+    const socket = new WebSocket(buildWsUrl(session.sessionId, session.participantToken));
+    setWs(socket);
+    return () => {
+      socket.close();
+    };
+  }, [session?.sessionId, session?.participantToken]);
+
+  // Session-ended detection at the flow level — catches the message
+  // whether the student is on the active session screen or the left screen.
+  const { sessionEnded, endReason } = useSessionEnded(ws);
+
+  // Track tutor connection status at the flow level so it persists
+  // across leave/rejoin (StudentSession unmount/remount).
+  const [tutorConnected, setTutorConnected] = useState(false);
+
+  useEffect(() => {
+    if (!ws) return;
+
+    function handleMessage(event: MessageEvent) {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "tutor_status") {
+          setTutorConnected(msg.data.connected);
+        } else if (msg.type === "session_status") {
+          setTutorConnected(msg.data.tutor_connected);
+        }
+      } catch {
+        // Ignore non-JSON messages
+      }
+    }
+
+    ws.addEventListener("message", handleMessage);
+    return () => ws.removeEventListener("message", handleMessage);
+  }, [ws]);
+
+  // Notify backend when student leaves/rejoins so the tutor dashboard updates
+  const handleLeave = useCallback(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "student_leave" }));
+    }
+    setActive(false);
+  }, [ws]);
+
+  const handleRejoin = useCallback(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "student_rejoin" }));
+    }
+    setActive(true);
+  }, [ws]);
+
+  // Session ended — takes priority over all other states
+  if (session && sessionEnded) {
+    return <SessionEndedScreen reason={endReason} />;
+  }
+
+  // Student is in the live session
+  if (session && active) {
+    if (!ws) {
+      // WebSocket is being created (useEffect hasn't fired yet)
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-gray-900">
+          <p className="text-white text-sm">Connecting…</p>
+        </div>
+      );
+    }
     return (
-      <StudentSessionWithWs
-        sessionId={joined.sessionId}
-        token={joined.participantToken}
+      <StudentSession
+        sessionId={session.sessionId}
+        token={session.participantToken}
+        ws={ws}
+        tutorConnected={tutorConnected}
+        onLeave={handleLeave}
       />
     );
   }
 
+  // Student left voluntarily — show rejoin screen
+  if (session && !active) {
+    return <StudentLeftScreen onRejoin={handleRejoin} />;
+  }
+
+  // Initial state — join page
   return (
     <StudentJoinPage
-      onJoin={(sessionId, participantToken) =>
-        setJoined({ sessionId, participantToken })
-      }
+      onJoin={(sessionId, participantToken) => {
+        setSession({ sessionId, participantToken });
+        setActive(true);
+      }}
       initialCode={code}
     />
   );
 }
 
-function StudentSessionWithWs({
-  sessionId,
-  token,
-}: {
-  sessionId: string;
-  token: string;
-}) {
-  const [ws] = useState<WebSocket | null>(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    return new WebSocket(
-      `${protocol}//${host}/ws/session/${sessionId}?token=${token}`,
-    );
-  });
-
-  return <StudentSession sessionId={sessionId} token={token} ws={ws} />;
+function buildWsUrl(sessionId: string, token: string): string {
+  const url = new URL(API_BASE);
+  const protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${url.host}/ws/session/${sessionId}?token=${token}`;
 }
 
 // --- Tutor live session with WebSocket ---
@@ -158,15 +233,16 @@ function StudentSessionWithWs({
 function TutorSessionRoute() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { token } = useAuth();
+  const [ws, setWs] = useState<WebSocket | null>(null);
 
-  const [ws] = useState<WebSocket | null>(() => {
-    if (!token || !sessionId) return null;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    return new WebSocket(
-      `${protocol}//${host}/ws/session/${sessionId}?token=${token}`,
-    );
-  });
+  useEffect(() => {
+    if (!token || !sessionId) return;
+    const socket = new WebSocket(buildWsUrl(sessionId, token));
+    setWs(socket);
+    return () => {
+      socket.close();
+    };
+  }, [sessionId, token]);
 
   if (!sessionId || !token) return null;
 

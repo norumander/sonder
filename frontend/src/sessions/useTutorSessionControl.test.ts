@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useSessionLifecycle } from "./useSessionLifecycle";
+import { useTutorSessionControl } from "./useTutorSessionControl";
 
-describe("useSessionLifecycle", () => {
+describe("useTutorSessionControl", () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
   let addEventSpy: ReturnType<typeof vi.spyOn>;
   let removeEventSpy: ReturnType<typeof vi.spyOn>;
@@ -22,7 +22,7 @@ describe("useSessionLifecycle", () => {
 
   it("starts with sessionEnded=false", () => {
     const { result } = renderHook(() =>
-      useSessionLifecycle("session-123", "test-token", null),
+      useTutorSessionControl("session-123", "test-token", null),
     );
 
     expect(result.current.sessionEnded).toBe(false);
@@ -31,7 +31,7 @@ describe("useSessionLifecycle", () => {
 
   it("endSession calls PATCH /sessions/{id}/end", async () => {
     const { result } = renderHook(() =>
-      useSessionLifecycle("session-123", "test-token", null),
+      useTutorSessionControl("session-123", "test-token", null),
     );
 
     await act(async () => {
@@ -58,7 +58,7 @@ describe("useSessionLifecycle", () => {
     } as unknown as WebSocket;
 
     const { result } = renderHook(() =>
-      useSessionLifecycle("session-123", "test-token", mockWs),
+      useTutorSessionControl("session-123", "test-token", mockWs),
     );
 
     await act(async () => {
@@ -70,42 +70,9 @@ describe("useSessionLifecycle", () => {
     );
   });
 
-  it("sets sessionEnded when session_ended WS message received", () => {
-    const listeners: Record<string, (e: MessageEvent) => void> = {};
-    const mockWs = {
-      readyState: WebSocket.OPEN,
-      send: vi.fn(),
-      addEventListener: vi.fn((event: string, handler: (e: MessageEvent) => void) => {
-        listeners[event] = handler;
-      }),
-      removeEventListener: vi.fn(),
-    } as unknown as WebSocket;
-
-    const { result } = renderHook(() =>
-      useSessionLifecycle("session-123", "test-token", mockWs),
-    );
-
-    expect(result.current.sessionEnded).toBe(false);
-
-    // Simulate receiving session_ended message
-    act(() => {
-      listeners["message"]?.(
-        new MessageEvent("message", {
-          data: JSON.stringify({
-            type: "session_ended",
-            data: { reason: "tutor_ended", timestamp_ms: 1000 },
-          }),
-        }),
-      );
-    });
-
-    expect(result.current.sessionEnded).toBe(true);
-    expect(result.current.endReason).toBe("tutor_ended");
-  });
-
   it("registers beforeunload handler", () => {
     renderHook(() =>
-      useSessionLifecycle("session-123", "test-token", null),
+      useTutorSessionControl("session-123", "test-token", null),
     );
 
     expect(addEventSpy).toHaveBeenCalledWith(
@@ -116,7 +83,7 @@ describe("useSessionLifecycle", () => {
 
   it("removes beforeunload handler on unmount", () => {
     const { unmount } = renderHook(() =>
-      useSessionLifecycle("session-123", "test-token", null),
+      useTutorSessionControl("session-123", "test-token", null),
     );
 
     unmount();
@@ -129,7 +96,7 @@ describe("useSessionLifecycle", () => {
 
   it("does not send PATCH when sessionId is empty", async () => {
     const { result } = renderHook(() =>
-      useSessionLifecycle("", "test-token", null),
+      useTutorSessionControl("", "test-token", null),
     );
 
     await act(async () => {
@@ -137,31 +104,5 @@ describe("useSessionLifecycle", () => {
     });
 
     expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it("ignores non-session_ended WebSocket messages", () => {
-    const listeners: Record<string, (e: MessageEvent) => void> = {};
-    const mockWs = {
-      readyState: WebSocket.OPEN,
-      send: vi.fn(),
-      addEventListener: vi.fn((event: string, handler: (e: MessageEvent) => void) => {
-        listeners[event] = handler;
-      }),
-      removeEventListener: vi.fn(),
-    } as unknown as WebSocket;
-
-    const { result } = renderHook(() =>
-      useSessionLifecycle("session-123", "test-token", mockWs),
-    );
-
-    act(() => {
-      listeners["message"]?.(
-        new MessageEvent("message", {
-          data: JSON.stringify({ type: "heartbeat" }),
-        }),
-      );
-    });
-
-    expect(result.current.sessionEnded).toBe(false);
   });
 });

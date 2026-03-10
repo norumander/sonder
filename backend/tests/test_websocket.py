@@ -241,7 +241,11 @@ def test_student_receives_heartbeat(sync_client, tutor_and_session):
         with sync_client.websocket_connect(
             f"/ws/session/{session.id}?token={student_token}"
         ) as ws:
-            data = ws.receive_json()
+            # Drain initial tutor_status message sent on student connect
+            for _ in range(5):
+                data = ws.receive_json()
+                if data["type"] == "heartbeat":
+                    break
             assert data["type"] == "heartbeat"
     finally:
         handler.HEARTBEAT_INTERVAL_S = original_interval

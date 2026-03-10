@@ -36,15 +36,6 @@ vi.mock("../shared/useAudioStreaming", () => ({
   })),
 }));
 
-// Mock useSessionLifecycle
-vi.mock("../sessions/useSessionLifecycle", () => ({
-  useSessionLifecycle: vi.fn(() => ({
-    sessionEnded: false,
-    endReason: null,
-    endSession: vi.fn(),
-  })),
-}));
-
 describe("StudentSession", () => {
   let mockWs: WebSocket;
 
@@ -58,16 +49,32 @@ describe("StudentSession", () => {
     } as unknown as WebSocket;
   });
 
-  it("renders session active indicator", () => {
+  it("shows waiting message when tutorConnected is false", () => {
     render(
       <StudentSession
         sessionId="sess-1"
         token="tok-1"
         ws={mockWs}
+        tutorConnected={false}
+      />,
+    );
+
+    expect(screen.getByText(/waiting for tutor/i)).toBeInTheDocument();
+    expect(screen.queryByText(/session active/i)).not.toBeInTheDocument();
+  });
+
+  it("shows session active when tutorConnected is true", () => {
+    render(
+      <StudentSession
+        sessionId="sess-1"
+        token="tok-1"
+        ws={mockWs}
+        tutorConnected={true}
       />,
     );
 
     expect(screen.getByText(/session active/i)).toBeInTheDocument();
+    expect(screen.queryByText(/waiting for tutor/i)).not.toBeInTheDocument();
   });
 
   it("renders leave session button", () => {
@@ -76,6 +83,7 @@ describe("StudentSession", () => {
         sessionId="sess-1"
         token="tok-1"
         ws={mockWs}
+        tutorConnected={false}
       />,
     );
 
@@ -88,6 +96,7 @@ describe("StudentSession", () => {
         sessionId="sess-1"
         token="tok-1"
         ws={mockWs}
+        tutorConnected={false}
       />,
     );
 
@@ -101,6 +110,7 @@ describe("StudentSession", () => {
         sessionId="sess-1"
         token="tok-1"
         ws={mockWs}
+        tutorConnected={false}
       />,
     );
 
@@ -118,54 +128,43 @@ describe("StudentSession", () => {
         sessionId="sess-1"
         token="tok-1"
         ws={mockWs}
+        tutorConnected={false}
       />,
     );
 
     expect(screen.queryByText(/nudge/i)).not.toBeInTheDocument();
   });
 
-  it("shows session ended screen when session ends", async () => {
-    const { useSessionLifecycle } = await import("../sessions/useSessionLifecycle");
-    const mockedHook = vi.mocked(useSessionLifecycle);
-
-    mockedHook.mockReturnValue({
-      sessionEnded: true,
-      endReason: "tutor_ended",
-      endSession: vi.fn(),
-    });
+  it("calls onLeave when leave button is clicked", () => {
+    const mockOnLeave = vi.fn();
 
     render(
       <StudentSession
         sessionId="sess-1"
         token="tok-1"
         ws={mockWs}
-      />,
-    );
-
-    expect(screen.getByText(/session ended/i)).toBeInTheDocument();
-  });
-
-  it("calls endSession when leave button is clicked", async () => {
-    const mockEndSession = vi.fn();
-    const { useSessionLifecycle } = await import("../sessions/useSessionLifecycle");
-    const mockedHook = vi.mocked(useSessionLifecycle);
-
-    mockedHook.mockReturnValue({
-      sessionEnded: false,
-      endReason: null,
-      endSession: mockEndSession,
-    });
-
-    render(
-      <StudentSession
-        sessionId="sess-1"
-        token="tok-1"
-        ws={mockWs}
+        tutorConnected={true}
+        onLeave={mockOnLeave}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /leave session/i }));
-    expect(mockEndSession).toHaveBeenCalled();
+    expect(mockOnLeave).toHaveBeenCalled();
+  });
+
+  it("sends request_status on mount when ws is open", () => {
+    render(
+      <StudentSession
+        sessionId="sess-1"
+        token="tok-1"
+        ws={mockWs}
+        tutorConnected={false}
+      />,
+    );
+
+    expect(mockWs.send).toHaveBeenCalledWith(
+      JSON.stringify({ type: "request_status" }),
+    );
   });
 
   it("shows media error when camera is denied", async () => {
@@ -186,6 +185,7 @@ describe("StudentSession", () => {
         sessionId="sess-1"
         token="tok-1"
         ws={mockWs}
+        tutorConnected={false}
       />,
     );
 

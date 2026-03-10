@@ -182,6 +182,21 @@ Even for test-after code, tests must exist before the task is marked `DONE`.
 
 ---
 
+## Bug Fix Changelog
+
+**Before fixing any bug, read `CHANGELOG.md` first** to check whether the same issue (or a related one) was attempted before. This prevents re-trying failed approaches and provides context on past fixes that may interact with the current issue.
+
+**After fixing a bug, add an entry to `CHANGELOG.md`** with:
+- Date
+- Symptom (what the user reported)
+- Root cause (what was actually wrong)
+- Fix applied (what changed and why)
+- Files modified
+
+This log is cumulative and never cleared. It serves as institutional memory for recurring issues.
+
+---
+
 ## Error Recovery
 
 **When the agent is stuck, it must stop digging and surface the problem.**

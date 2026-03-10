@@ -40,6 +40,13 @@ export interface StudentStatusMessage {
   };
 }
 
+export interface TutorStatusMessage {
+  type: "tutor_status";
+  data: {
+    connected: boolean;
+  };
+}
+
 export interface NudgeData {
   nudge_type: string;
   message: string;
@@ -59,7 +66,7 @@ export interface HeartbeatMessage {
 export interface SessionEndedMessage {
   type: "session_ended";
   data: {
-    reason: "tutor_ended" | "student_disconnect_timeout";
+    reason: "tutor_ended";
     timestamp_ms: number;
   };
 }
@@ -80,6 +87,7 @@ export type ServerMessage =
   | ServerMetricsMessage
   | AttentionDriftMessage
   | StudentStatusMessage
+  | TutorStatusMessage
   | NudgeMessage
   | HeartbeatMessage
   | SessionEndedMessage

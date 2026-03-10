@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     DateTime,
     Enum,
     Float,
@@ -121,7 +122,7 @@ class MetricSnapshot(Base):
     session_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("sessions.id"), nullable=False
     )
-    timestamp_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    timestamp_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
     metrics: Mapped[dict] = mapped_column(JSON, nullable=False)
 
     session: Mapped["Session"] = relationship(back_populates="metric_snapshots")
@@ -140,7 +141,7 @@ class Nudge(Base):
     session_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("sessions.id"), nullable=False
     )
-    timestamp_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    timestamp_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
     nudge_type: Mapped[NudgeType] = mapped_column(
         Enum(NudgeType, native_enum=False), nullable=False
     )

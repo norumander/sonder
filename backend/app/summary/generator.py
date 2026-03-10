@@ -238,12 +238,12 @@ async def generate_summary(
         "energy": _aggregate_metric(student_energy_values),
     }
 
-    # Talk time ratio from average across snapshots
-    tutor_talk_values = [s.metrics.get("tutor_talk_pct", 0.0) for s in snapshots]
-    student_talk_values = [s.metrics.get("student_talk_pct", 0.0) for s in snapshots]
+    # Talk time ratio from average across snapshots (filter None values)
+    tutor_talk_values = [v for s in snapshots if (v := s.metrics.get("tutor_talk_pct")) is not None]
+    student_talk_values = [v for s in snapshots if (v := s.metrics.get("student_talk_pct")) is not None]
     talk_time_ratio = {
-        "tutor_pct": round(sum(tutor_talk_values) / len(tutor_talk_values), 1),
-        "student_pct": round(sum(student_talk_values) / len(student_talk_values), 1),
+        "tutor_pct": round(sum(tutor_talk_values) / len(tutor_talk_values), 1) if tutor_talk_values else 0.0,
+        "student_pct": round(sum(student_talk_values) / len(student_talk_values), 1) if student_talk_values else 0.0,
     }
 
     # Total interruptions from the final snapshot (cumulative)

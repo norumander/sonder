@@ -1,8 +1,13 @@
 """FastAPI application entry point."""
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+# Configure logging so app loggers (INFO+) are visible
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 from app.auth.router import router as auth_router
 from app.config import settings

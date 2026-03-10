@@ -34,7 +34,7 @@ export function useFaceMesh(
     if (!landmarkerRef.current || !videoElement) return;
     if (videoElement.readyState < 2 || videoElement.videoWidth === 0) return;
 
-    const result = landmarkerRef.current.detect(videoElement);
+    const result = landmarkerRef.current.detectForVideo(videoElement, performance.now());
 
     if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
       setFaceDetected(false);
