@@ -1,7 +1,7 @@
 # IMPLEMENTATION.md
 
 ## Current Focus
-Steady-State Development — TASK-001 through TASK-024 complete, TASK-025 next.
+Steady-State Development — TASK-001 through TASK-025 complete, TASK-026 next.
 
 ## Tasks
 
@@ -320,7 +320,7 @@ Steady-State Development — TASK-001 through TASK-024 complete, TASK-025 next.
 - **Dependencies**: TASK-007, TASK-010, TASK-012
 
 ### TASK-025: Graceful Degradation
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Handle failure modes: face detection failure >5s → "[Role] face not detected" warning, visual metrics excluded from nudge calc. Audio absent >60s → "[Role] audio unavailable". Student disconnect → metrics freeze, "Student disconnected" indicator. Student reconnect within 30s resumes.
 - **Acceptance Criteria**:
@@ -439,5 +439,13 @@ _None yet._
 - **Completed**: TASK-024 (Pre-Recorded Video File Input — backend `prerecorded/` module with face_analyzer.py (server-side eye contact + facial energy from MediaPipe Python landmarks), video_processor.py (frame extraction via OpenCV, audio extraction via ffmpeg, metric pipeline orchestration through existing VAD/prosody/energy/talk-time/interruption modules), router.py (POST `/sessions/upload` with multipart file upload, background processing, session creation with type pre_recorded). Frontend UploadForm.tsx with two file inputs, timestamp offset field, processing speed selector (1x/2x/4x), route at `/upload` in App.tsx. Dependencies added: mediapipe, opencv-python-headless, ffmpeg (system). 24 new tests (17 backend, 7 frontend).
 - **State**: 24 of 26 tasks done. Backend: 213 tests passing, ruff clean. Frontend: 197 tests passing, no new TS errors. Pre-recorded video processing: tutor uploads 2 video files → backend extracts frames (cv2) + audio (ffmpeg) → runs through same metric pipeline as live sessions → produces MetricSnapshots → session marked completed → viewable in analytics. Processing speed (1x/2x/4x) controls frame sampling interval. Timestamp offset aligns student video to tutor video.
 - **Next**: TASK-025 (Graceful Degradation — face detection failure >5s warning, visual metrics excluded from nudge calc, audio unavailable >60s warning, student disconnect indicator, metric freeze on disconnect, reconnection resume, face detection warning clear). Dependencies satisfied (TASK-007, 014, 015, 019 all done).
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 19:35
+- **Phase**: Steady-State Development
+- **Completed**: TASK-025 (Graceful Degradation — DegradationTracker backend module tracking face detection failure >5s and audio unavailability >60s per session/role, degradation_warning WebSocket messages broadcast to tutor, DegradationBanner frontend component displaying warnings on tutor dashboard, NudgeEngine naturally excludes visual metrics during face failure via None handling, student metrics freeze at server level on disconnect, 22 new backend tests + 11 new frontend tests).
+- **State**: 25 of 26 tasks done. Backend: 235 tests passing, ruff clean. Frontend: 208 tests passing, no new TS errors. All graceful degradation paths covered: face detection failure → warning at 5s → clears on recovery, audio timeout → warning at 60s → clears on audio resume, student disconnect → "Student disconnected" banner + metric freeze → reconnection resumes. Visual metric nudge rules excluded during face failure (inherent via None values).
+- **Next**: TASK-026 (Docker Compose Setup & README — docker-compose.yml updates, Dockerfile verification, seed script for auto table creation, .env.example, README with prerequisites/setup/OAuth config/tutor+student usage flows). This is the final task.
 - **Blockers**: None
 - **Open Questions**: None
