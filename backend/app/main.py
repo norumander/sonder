@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from app.auth.router import router as auth_router
 from app.config import settings
 from app.preferences.router import router as preferences_router
+from app.prerecorded.router import router as prerecorded_router
 from app.sessions.router import router as sessions_router
 from app.trends.router import router as trends_router
 from app.websocket.handler import router as ws_router
@@ -23,6 +24,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(preferences_router)
+app.include_router(prerecorded_router)
 app.include_router(sessions_router)
 app.include_router(trends_router)
 app.include_router(ws_router)

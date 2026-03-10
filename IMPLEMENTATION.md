@@ -1,7 +1,7 @@
 # IMPLEMENTATION.md
 
 ## Current Focus
-Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
+Steady-State Development — TASK-001 through TASK-024 complete, TASK-025 next.
 
 ## Tasks
 
@@ -73,7 +73,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-001, TASK-002, TASK-003
 
 ### TASK-006: Client Webcam & Microphone Capture
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Implement `useMediaCapture` React hook that requests webcam and microphone access via `getUserMedia`. Handle permission denied states. Chunk audio into 1-second PCM segments. Provide video stream for face mesh and preview.
 - **Acceptance Criteria**:
@@ -86,7 +86,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: None (frontend, no backend deps)
 
 ### TASK-007: MediaPipe Face Mesh & Eye Contact Metric
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Integrate MediaPipe Face Mesh (JS) to process webcam video frames. Compute eye contact score (0.0–1.0) using iris landmark positions relative to eye boundary landmarks. Update every 500ms. Extract facial energy (expression valence) from landmark movement.
 - **Acceptance Criteria**:
@@ -100,7 +100,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-006
 
 ### TASK-008: Audio Chunk Streaming (Client → Server)
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Stream audio chunks from both tutor and student browsers to the backend via WebSocket. Each chunk is a 1-second base64 PCM segment labeled with the participant's channel ("tutor" or "student") and a timestamp.
 - **Acceptance Criteria**:
@@ -112,7 +112,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-005, TASK-006
 
 ### TASK-009: Client Metrics Streaming (Client → Server)
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Stream computed client-side metrics (eye contact score, facial energy) from both browsers to the backend via WebSocket at 500ms intervals.
 - **Acceptance Criteria**:
@@ -123,7 +123,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-005, TASK-007
 
 ### TASK-010: Speaking Time Balance Metric (Server)
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Apply WebRTC VAD independently to tutor and student audio channels. Calculate each participant's talk time as a running percentage. Update every 2 seconds. No diarization needed — speaker identity known by channel.
 - **Acceptance Criteria**:
@@ -135,7 +135,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-005, TASK-008
 
 ### TASK-011: Interruption Detection Metric (Server)
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Detect overlapping speech by cross-referencing VAD output from tutor and student channels. An interruption is counted when both channels show active speech for >300ms simultaneously. Attribute interrupter as the speaker who activated second.
 - **Acceptance Criteria**:
@@ -147,7 +147,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-010
 
 ### TASK-012: Energy Level Metric (Server + Client)
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Compute energy score (0.0–1.0) per participant combining voice prosody (pitch variation, volume variation, speech rate — weight 0.6) and facial energy (weight 0.4). Use librosa for prosody features. Update every 2 seconds.
 - **Acceptance Criteria**:
@@ -160,7 +160,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-009, TASK-010
 
 ### TASK-013: Attention Drift Detection (Server)
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Compute attention drift flag per participant when: eye contact <0.3 for >15 consecutive seconds, OR energy drops >0.3 from rolling 2-minute average. Flag includes participant role and trigger reason.
 - **Acceptance Criteria**:
@@ -172,7 +172,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-009, TASK-012
 
 ### TASK-014: Server Metrics Broadcast to Tutor
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Aggregate all server-side metrics and broadcast to the tutor's WebSocket connection. Send `server_metrics` messages at 1Hz+ with both participants' data. Send `attention_drift` messages when flags change. Send `student_status` on student connect/disconnect.
 - **Acceptance Criteria**:
@@ -185,7 +185,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-005, TASK-010, TASK-011, TASK-012, TASK-013
 
 ### TASK-015: Real-Time Metrics Dashboard UI
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Build the tutor's live dashboard showing engagement metrics for both participants. Side-by-side layout with tutor and student sections. Each metric shows current value, trend arrow (improving/declining/stable over last 2 minutes), and color-coded status (green/yellow/red). Combined session engagement score displayed.
 - **Acceptance Criteria**:
@@ -199,7 +199,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-014
 
 ### TASK-016: Coaching Nudge Engine (Server)
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Evaluate coaching nudge rules against combined tutor + student metrics. Rules: student silent >3min, student eye contact <0.3 for >30s, tutor talk >80% for >5min, student energy drop >30%, 3+ interruptions in 2min, tutor eye contact <0.3 for >30s. 60-second cooldown per nudge type. Max 1 nudge visible at a time.
 - **Acceptance Criteria**:
@@ -213,7 +213,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-004, TASK-014
 
 ### TASK-017: Nudge Display UI
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Display coaching nudges as non-intrusive toast notifications on the tutor's screen. Auto-dismiss after 8 seconds. Queue nudges — max 1 visible at a time. Never shown to student.
 - **Acceptance Criteria**:
@@ -225,7 +225,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-016
 
 ### TASK-018: Nudge Configuration UI
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Settings panel where tutors configure nudge sensitivity (thresholds) and enable/disable individual nudge types. Persists to backend via PUT `/tutor/preferences`.
 - **Acceptance Criteria**:
@@ -237,7 +237,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-004, TASK-016
 
 ### TASK-019: Session Lifecycle Management
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: Implement full session lifecycle: tutor creates → waiting, student joins → active, session ends → completed. End triggers: tutor clicks "End Session", tutor closes tab (beforeunload), student disconnects and doesn't reconnect within 30s. Both see "Session ended" screen.
 - **Acceptance Criteria**:
@@ -253,7 +253,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-003, TASK-005
 
 ### TASK-020: Student Minimal UI
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Build the student's session view: webcam preview with face landmark overlay, "Session active" indicator, "Leave session" button. No metrics, nudges, or dashboard shown.
 - **Acceptance Criteria**:
@@ -266,7 +266,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-006, TASK-007, TASK-009
 
 ### TASK-021: Post-Session Summary Generation
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P0
 - **Description**: When a session ends, compute summary: avg/min/max per metric per participant, total interruptions with attribution, talk time ratio, flagged moments (drift + nudges with participant role), 2–4 personalized recommendations. Store as SessionSummary.
 - **Acceptance Criteria**:
@@ -281,7 +281,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-003, TASK-014
 
 ### TASK-022: Post-Session Analytics Dashboard
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Page listing all past sessions for the tutor, sorted by date. Clicking a session shows full summary, timeline chart of engagement metrics (both participants), and nudges delivered.
 - **Acceptance Criteria**:
@@ -294,7 +294,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-021
 
 ### TASK-023: Cross-Session Trend Analysis
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Trends view showing metric averages across last 10 sessions as line charts. Tutor and student metrics as separate series. Show "Complete more sessions to see trends" when <2 sessions exist.
 - **Acceptance Criteria**:
@@ -306,7 +306,7 @@ Steady-State Development — TASK-001 through TASK-005 complete, TASK-006 next.
 - **Dependencies**: TASK-022
 
 ### TASK-024: Pre-Recorded Video File Input
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Tutor uploads two video files (mp4/webm) — one per participant. Optional timestamp offset. Files processed through same MediaPipe + audio pipeline at 1x–4x speed. Produces metric snapshots for both participants.
 - **Acceptance Criteria**:
@@ -383,5 +383,53 @@ _None yet._
 - **Completed**: TASK-001 (DB models + migration), TASK-002 (Google OAuth + JWT auth), TASK-003 (Session CRUD API). All with TDD.
 - **State**: 5 SQLAlchemy models (Tutor, Session, MetricSnapshot, Nudge, SessionSummary) with enums, JSONB columns, and relationships. Alembic initial migration applied to PostgreSQL (port 5433). Auth: POST /auth/google, GET /auth/me, get_current_tutor dependency. Sessions: POST/GET /sessions, POST /sessions/join (with HTML sanitization), PATCH /sessions/{id}/end, paginated list. 35 backend tests passing. Ruff lint clean. Frontend unchanged (1 test passing).
 - **Next**: TASK-004 (Tutor Preferences API) — simple GET/PUT /tutor/preferences. Then TASK-005 (WebSocket Infrastructure) which is the next major P0.
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 17:17
+- **Phase**: Steady-State Development
+- **Completed**: TASK-006 (useMediaCapture hook — webcam+mic, PCM audio chunking, permission handling), TASK-007 (MediaPipe Face Mesh — computeEyeContact, computeFacialEnergy, useFaceMesh hook), TASK-008 (Audio chunk streaming — AudioChunkBuffer backend, WS dispatch, useAudioStreaming frontend hook).
+- **State**: 8 of 26 tasks done. Backend: 65 tests passing, ruff clean. Frontend: 31 tests passing, TypeScript clean. Client-side pipeline complete: media capture → face mesh metrics + audio chunks → WebSocket streaming to server. Server receives and buffers audio chunks per session/role.
+- **Next**: TASK-009 (Client Metrics Streaming) — stream eye_contact_score + facial_energy from both browsers to backend at 500ms intervals via WebSocket. Then TASK-010 (Speaking Time Balance — server-side VAD).
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 22:30
+- **Phase**: Steady-State Development
+- **Completed**: TASK-013 (Attention Drift Detection — AttentionDriftDetector with eye contact <0.3 for >15s and energy drop >0.3 from 2-min average, per-participant, with DriftResult dataclass), TASK-014 (Server Metrics Broadcast — MetricsAggregator wiring all metric sources, broadcast server_metrics to tutor via WebSocket on each client_metrics update, student_status on connect/disconnect, attention_drift on state changes).
+- **State**: 14 of 26 tasks done. Backend: 139 tests passing, ruff clean. Frontend: 38 tests passing, TypeScript clean. Full end-to-end metric pipeline wired: client capture → face mesh + audio → WebSocket → server aggregation (VAD, talk time, interruptions, prosody, energy, drift) → broadcast to tutor. Student does not receive server metrics.
+- **Next**: TASK-015 (Real-Time Metrics Dashboard UI) — frontend React components for tutor's live dashboard. Or TASK-016 (Nudge Engine) if preferring to finish backend first.
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 17:45
+- **Phase**: Steady-State Development
+- **Completed**: TASK-009 (Client Metrics Streaming — useMetricsStreaming hook + ClientMetricsBuffer backend), TASK-010 (VAD Speech Detection — VadAnalyzer + TalkTimeTracker), TASK-011 (Interruption Detection — InterruptionDetector with >300ms overlap threshold and attribution), TASK-012 (Energy Level Metric — ProsodyAnalyzer with librosa + EnergyScorer with 0.6/0.4 weighting).
+- **State**: 12 of 26 tasks done. Backend: 112 tests passing, ruff clean. Frontend: 38 tests passing, TypeScript clean. Full client-to-server metric pipeline complete. Server-side analysis modules built: VAD, talk time, interruptions, prosody, energy scoring. All as independent, tested components ready for wiring in TASK-013/014.
+- **Next**: TASK-013 (Attention Drift Detection) — flag when eye contact <0.3 for >15s or energy drops >0.3 from 2-min average. Then TASK-014 (Server Metrics Broadcast) which wires everything together.
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 23:45
+- **Phase**: Steady-State Development
+- **Completed**: TASK-018 (Nudge Configuration UI — NudgeSettings component with 6 toggle checkboxes, 8 threshold number inputs, usePreferences hook for GET/PUT /tutor/preferences), TASK-019 (Session Lifecycle Management — end_session WS message, session_ended broadcast to both clients, 30s student reconnect timer with auto-end, beforeunload handler via sendBeacon, SessionEndedScreen component, useSessionLifecycle hook).
+- **State**: 19 of 26 tasks done. Backend: 163 tests passing, ruff clean. Frontend: 134 tests passing, TypeScript clean. Full pipeline operational: capture → metrics → broadcast → dashboard → nudges → settings. Session lifecycle: create → join → active → end (manual/timeout/tab close) → session_ended screen. Student reconnection within 30s resumes session.
+- **Next**: TASK-020 (Student Minimal UI — webcam preview, "Session active" indicator, "Leave session" button, join page with code entry + display name). Dependencies satisfied (TASK-006, 007, 009 all done).
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 19:00
+- **Phase**: Steady-State Development
+- **Completed**: TASK-022 (Post-Session Analytics Dashboard — SessionList with pagination, SessionDetail with engagement score/metric summaries/talk time/interruptions/recommendations, TimelineChart with 3 Recharts LineCharts for eye contact/energy/talk time, nudge list with timestamps. Backend GET /sessions/{id}/snapshots and GET /sessions/{id}/nudges endpoints. React Router wired in App.tsx with /analytics and /analytics/:sessionId routes. useSessionList and useSessionDetail hooks. Analytics types module.)
+- **State**: 22 of 26 tasks done. Backend: 189 tests passing, ruff clean. Frontend: 176 tests passing, no new TS errors. Full analytics pipeline: session list → click session → detail view with summary, timeline charts (both participants), nudge history. React Router integrated. All prior features intact.
+- **Next**: TASK-023 (Cross-Session Trend Analysis — GET /tutor/trends backend endpoint returning per-session averages, frontend Recharts line chart showing metric trends across last 10 sessions, tutor/student as separate series, empty state for <2 sessions). Dependencies satisfied (TASK-022 done).
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 23:10
+- **Phase**: Steady-State Development
+- **Completed**: TASK-015 (Real-Time Metrics Dashboard UI — LiveDashboard with MetricCard, useServerMetrics hook, metricUtils for trends/colors/engagement score, shared types), TASK-016 (Coaching Nudge Engine — NudgeEngine with 6 rules, 60s cooldown, preference filtering, wired into WebSocket handler with DB persistence).
+- **State**: 16 of 26 tasks done. Backend: 156 tests passing, ruff clean. Frontend: 86 tests passing, TypeScript clean. Full end-to-end pipeline: client capture → metrics → server aggregation → broadcast to tutor dashboard + nudge evaluation → nudge delivery via WebSocket + DB persistence. Nudge engine respects tutor preferences (enabled/disabled types, custom thresholds).
+- **Next**: TASK-017 (Nudge Display UI — toast notifications on tutor screen, auto-dismiss 8s, queue max 1 visible). Then TASK-018 (Nudge Configuration UI) or TASK-019 (Session Lifecycle Management).
 - **Blockers**: None
 - **Open Questions**: None
