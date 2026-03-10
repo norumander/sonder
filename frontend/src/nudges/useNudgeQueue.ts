@@ -22,6 +22,7 @@ export interface NudgeQueueState {
 
 export function useNudgeQueue(): NudgeQueueState {
   const [activeNudge, setActiveNudge] = useState<NudgeData | null>(null);
+  const activeNudgeRef = useRef<NudgeData | null>(null);
   const queueRef = useRef<NudgeData[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [queueLength, setQueueLength] = useState(0);
@@ -38,18 +39,21 @@ export function useNudgeQueue(): NudgeQueueState {
     const next = queueRef.current.shift();
     setQueueLength(queueRef.current.length);
     if (next) {
+      activeNudgeRef.current = next;
       setActiveNudge(next);
       timerRef.current = setTimeout(() => {
         showNext();
       }, AUTO_DISMISS_MS);
     } else {
+      activeNudgeRef.current = null;
       setActiveNudge(null);
     }
   }, [clearTimer]);
 
   const enqueue = useCallback(
     (nudge: NudgeData) => {
-      if (activeNudge === null && queueRef.current.length === 0) {
+      if (activeNudgeRef.current === null && queueRef.current.length === 0) {
+        activeNudgeRef.current = nudge;
         setActiveNudge(nudge);
         timerRef.current = setTimeout(() => {
           showNext();
@@ -59,7 +63,7 @@ export function useNudgeQueue(): NudgeQueueState {
         setQueueLength(queueRef.current.length);
       }
     },
-    [activeNudge, showNext],
+    [showNext],
   );
 
   const dismiss = useCallback(() => {

@@ -40,6 +40,7 @@ export function useMediaCapture(): MediaCaptureState {
   const [status, setStatus] = useState<MediaCaptureStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [micAvailable, setMicAvailable] = useState(true);
+  const audioChunksRef = useRef<AudioChunk[]>([]);
   const [audioChunks, setAudioChunks] = useState<AudioChunk[]>([]);
 
   const streamRef = useRef<MediaStream | null>(null);
@@ -51,10 +52,11 @@ export function useMediaCapture(): MediaCaptureState {
   const lastChunkTimeRef = useRef<number>(0);
 
   const consumeAudioChunks = useCallback((): AudioChunk[] => {
-    const chunks = [...audioChunks];
+    const chunks = audioChunksRef.current;
+    audioChunksRef.current = [];
     setAudioChunks([]);
     return chunks;
-  }, [audioChunks]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -180,7 +182,8 @@ export function useMediaCapture(): MediaCaptureState {
         timestamp: now - startTimeRef.current,
       };
 
-      setAudioChunks((prev) => [...prev, chunk]);
+      audioChunksRef.current = [...audioChunksRef.current, chunk];
+      setAudioChunks([...audioChunksRef.current]);
       lastChunkTimeRef.current = now;
     }
 

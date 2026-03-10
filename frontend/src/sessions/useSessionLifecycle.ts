@@ -40,10 +40,15 @@ export function useSessionLifecycle(
     }
 
     // Also call REST API to persist status change
-    await fetch(`${API_BASE}/sessions/${sessionIdRef.current}/end`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${tokenRef.current}` },
-    });
+    try {
+      await fetch(`${API_BASE}/sessions/${sessionIdRef.current}/end`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
+      });
+    } catch {
+      // Network failure is acceptable — the WS end_session message
+      // already triggered the server-side session end.
+    }
 
     setSessionEnded(true);
     setEndReason("tutor_ended");
@@ -72,17 +77,13 @@ export function useSessionLifecycle(
   // Register beforeunload handler to end session on tab close
   useEffect(() => {
     function handleBeforeUnload() {
-      if (!sessionIdRef.current || !tokenRef.current) return;
-
-      // Use sendBeacon for reliable delivery during page unload
-      const url = `${API_BASE}/sessions/${sessionIdRef.current}/end`;
-      navigator.sendBeacon(
-        url,
-        new Blob(
-          [JSON.stringify({})],
-          { type: "application/json" },
-        ),
-      );
+      // Send end_session via WebSocket — this is the most reliable way
+      // to notify the server during page unload. sendBeacon cannot send
+      // PATCH requests or auth headers.
+      const currentWs = wsRef.current;
+      if (currentWs && currentWs.readyState === WebSocket.OPEN) {
+        currentWs.send(JSON.stringify({ type: "end_session" }));
+      }
     }
 
     window.addEventListener("beforeunload", handleBeforeUnload);

@@ -52,8 +52,12 @@ export function StudentJoinPage({ onJoin }: StudentJoinPageProps) {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        setError(data.detail ?? "Failed to join session.");
+        try {
+          const data = await response.json();
+          setError(data.detail ?? "Failed to join session.");
+        } catch {
+          setError(`Failed to join session (${response.status}).`);
+        }
         setSubmitting(false);
         return;
       }

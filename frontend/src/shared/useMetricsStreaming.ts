@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const METRICS_INTERVAL_MS = 500;
 
@@ -23,10 +23,30 @@ export function useMetricsStreaming(
   eyeContactScore: number | null,
   facialEnergy: number | null,
 ): MetricsStreamingState {
-  const isStreaming = useMemo(
+  const [isStreaming, setIsStreaming] = useState(
     () => ws !== null && ws.readyState === WebSocket.OPEN,
-    [ws],
   );
+
+  useEffect(() => {
+    if (!ws) {
+      setIsStreaming(false);
+      return;
+    }
+
+    const handleOpen = () => setIsStreaming(true);
+    const handleClose = () => setIsStreaming(false);
+
+    setIsStreaming(ws.readyState === WebSocket.OPEN);
+
+    ws.addEventListener("open", handleOpen);
+    ws.addEventListener("close", handleClose);
+    ws.addEventListener("error", handleClose);
+    return () => {
+      ws.removeEventListener("open", handleOpen);
+      ws.removeEventListener("close", handleClose);
+      ws.removeEventListener("error", handleClose);
+    };
+  }, [ws]);
 
   // Use refs so the interval callback always sees the latest values
   // without needing to restart the interval on every metric change.

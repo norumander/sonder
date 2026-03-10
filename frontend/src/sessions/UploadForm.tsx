@@ -46,8 +46,12 @@ export function UploadForm({ token, onUploadComplete }: UploadFormProps) {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        setError(data.detail || "Upload failed");
+        try {
+          const data = await response.json();
+          setError(data.detail || "Upload failed");
+        } catch {
+          setError(`Upload failed (${response.status})`);
+        }
         return;
       }
 
