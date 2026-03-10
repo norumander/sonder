@@ -463,3 +463,47 @@ _None yet._
 - **Next**: Project complete. No remaining tasks or issues. User may request new features, deployment, or further refinements.
 - **Blockers**: None
 - **Open Questions**: None
+
+### Checkpoint — 2026-03-09 21:30
+- **Phase**: Post-completion — Chunk 2 Remediation Complete
+- **Completed**: Executed Chunk 2 — Backend Reliability & Resource Management:
+  1. Audio buffer memory bounds (MAX_CHUNKS_PER_ROLE=120, evicts oldest)
+  2. Client metrics buffer memory bounds (MAX_ENTRIES_PER_ROLE=600, evicts oldest)
+  3. Full session cleanup on tutor disconnect (audio_buffer, client_metrics_buffer, metrics_aggregator cleared)
+  4. Session end idempotency (double-end returns 200 with original end_time in both REST and WS handler)
+  5. Pre-recorded temp directory cleanup (parent upload_dir removed)
+  6. Fixed NoneType crash in nudge engine for None talk_pct/interruption_count values
+  7. Updated 3 existing tests to account for tutor-disconnect cleanup; added 11 new buffer bounds tests + 1 idempotency test
+- **State**: All 26 tasks + Chunk 1 + Chunk 2 remediation complete. 273 backend tests, 208 frontend tests. App lint clean. Git on `main`.
+- **Next**: Execute **Chunk 3 — Frontend Robustness & Error Handling** (per remediation plan)
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 21:00
+- **Phase**: Post-completion — Second Code Review & Remediation Plan
+- **Completed**: Ran comprehensive code review with 4 parallel review agents (project structure, backend, frontend, tests/infra). Identified 34 issues across all severity levels (5 critical, 11 high, 12 medium, 6+ low). Created a 5-chunk remediation plan approved by user.
+- **State**: All 26 tasks complete. 235 backend tests, 208 frontend tests. Git clean on `main`. Remediation plan defined but not yet started.
+- **Next**: Execute **Chunk 1 — Backend Security & Configuration Hardening**:
+  1. Add `SONDER_ENVIRONMENT` to config, fail-fast on JWT secret / Google Client ID in production
+  2. Fix student token semantics (add `role` claim to JWT instead of `student:` prefix)
+  3. Add Pydantic validation ranges on nudge preference thresholds
+  4. Add join code collision retry logic with DB uniqueness check
+  5. Remove hardcoded URL from `alembic.ini`
+  6. ~8-10 files, ~15 new tests
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-09 22:00
+- **Phase**: Post-completion — Frontend UI Wiring
+- **Completed**: Recovery + full frontend inventory. Discovered that all hooks and inner components are built and tested (208 frontend tests, 273 backend tests, all green), but no page-level wiring exists — no auth UI, no session creation page, no live session pages, no student join route, no nav bar. Created `.env` with Google OAuth Client ID (`671583741537-fdj0cd2fu3vjmhor178tt54j821g975b.apps.googleusercontent.com`) and JWT secret. Planned 3-chunk implementation approved by user.
+- **State**: All 26 tasks + code review remediation complete. Backend fully functional. Frontend has all hooks/components but no page-level routing or auth flow. `.env` configured with real Google OAuth credentials. `@react-oauth/google` is in package.json already.
+- **Next**: Execute **Chunk A — Auth + Session Creation + Navigation** (6 files):
+  1. `auth/useAuth.ts` — Google OAuth hook (POST /auth/google, JWT in localStorage, token/tutor/login/logout)
+  2. `auth/LoginPage.tsx` — Google sign-in button page
+  3. `auth/ProtectedRoute.tsx` — redirect to /login if no token
+  4. `sessions/useCreateSession.ts` — hook calling POST /sessions
+  5. `sessions/CreateSessionPage.tsx` — form with subject field, shows join code after creation, "Start Session" button
+  6. `App.tsx` — rewire with auth context, nav bar, all routes including protected routes
+  Then checkpoint and move to Chunk B (live session pages).
+- **Blockers**: None
+- **Open Questions**: None

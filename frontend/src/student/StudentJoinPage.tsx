@@ -4,14 +4,16 @@ import { API_BASE } from "../shared/config";
 interface StudentJoinPageProps {
   /** Called with session_id and participant_token after successful join. */
   onJoin: (sessionId: string, participantToken: string) => void;
+  /** Optional pre-filled join code from URL parameter. */
+  initialCode?: string;
 }
 
 /**
  * Join page for students. Prompts for a 6-character session code and display name.
  * Calls POST /sessions/join and invokes onJoin on success.
  */
-export function StudentJoinPage({ onJoin }: StudentJoinPageProps) {
-  const [joinCode, setJoinCode] = useState("");
+export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
+  const [joinCode, setJoinCode] = useState(initialCode ?? "");
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
