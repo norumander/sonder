@@ -8,6 +8,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of metric entries to keep per session/role.
+# At 2 entries/second, 600 entries = 5 minutes of history.
+MAX_ENTRIES_PER_ROLE = 600
+
 
 class ClientMetricsBuffer:
     """Buffer for client-side metrics (eye contact, facial energy) per session/role.
@@ -15,6 +19,7 @@ class ClientMetricsBuffer:
     Stores the latest and historical metrics as they arrive from each
     participant's browser. Used by the server-side metrics engine to combine
     client metrics with server-computed audio metrics.
+    Oldest entries are evicted when the buffer exceeds MAX_ENTRIES_PER_ROLE.
     """
 
     def __init__(self) -> None:
@@ -32,6 +37,8 @@ class ClientMetricsBuffer:
     ) -> None:
         """Store a client metrics snapshot for a session/role.
 
+        Evicts oldest entries if buffer exceeds MAX_ENTRIES_PER_ROLE.
+
         Args:
             session_id: The session this metric belongs to.
             role: "tutor" or "student".
@@ -39,11 +46,14 @@ class ClientMetricsBuffer:
             facial_energy: Facial energy score (0.0–1.0) or None if face not detected.
             timestamp: Timestamp in ms relative to session start.
         """
-        self._history[session_id][role].append({
+        buf = self._history[session_id][role]
+        buf.append({
             "eye_contact_score": eye_contact_score,
             "facial_energy": facial_energy,
             "timestamp": timestamp,
         })
+        if len(buf) > MAX_ENTRIES_PER_ROLE:
+            del buf[: len(buf) - MAX_ENTRIES_PER_ROLE]
 
     def get_latest(self, session_id: str, role: str) -> dict[str, Any] | None:
         """Return the most recent metrics for a session/role, or None."""

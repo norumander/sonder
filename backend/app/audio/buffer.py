@@ -8,12 +8,17 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of chunks to buffer per session/role.
+# At 1 chunk/second, 120 chunks = 2 minutes of audio (~3.8 MB base64).
+MAX_CHUNKS_PER_ROLE = 120
+
 
 class AudioChunkBuffer:
     """Thread-safe buffer for audio chunks organized by session and role.
 
     Stores base64-encoded PCM audio chunks as they arrive from WebSocket
     connections. Chunks can be consumed by the audio analysis pipeline.
+    Oldest chunks are evicted when the buffer exceeds MAX_CHUNKS_PER_ROLE.
     """
 
     def __init__(self) -> None:
@@ -26,15 +31,19 @@ class AudioChunkBuffer:
     ) -> None:
         """Store an audio chunk for a given session and role.
 
+        Evicts oldest chunks if buffer exceeds MAX_CHUNKS_PER_ROLE.
+
         Args:
             session_id: The session this chunk belongs to.
             role: "tutor" or "student".
             data: Base64-encoded PCM audio data.
             timestamp: Timestamp in ms relative to session start.
         """
-        self._chunks[session_id][role].append(
-            {"data": data, "timestamp": timestamp}
-        )
+        buf = self._chunks[session_id][role]
+        buf.append({"data": data, "timestamp": timestamp})
+        if len(buf) > MAX_CHUNKS_PER_ROLE:
+            # Trim oldest chunks to stay within bounds
+            del buf[: len(buf) - MAX_CHUNKS_PER_ROLE]
 
     def get_chunks(self, session_id: str, role: str) -> list[dict[str, Any]]:
         """Return all buffered chunks for a session/role without consuming them."""

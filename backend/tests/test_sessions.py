@@ -284,3 +284,32 @@ async def test_end_session_sets_completed(client, tutor_token):
     data = response.json()
     assert data["session_id"] == session_id
     assert data["end_time"] is not None
+
+
+async def test_end_session_idempotent_returns_same_end_time(client, tutor_token):
+    """PATCH /sessions/{id}/end twice returns 200 both times with preserved end_time."""
+    create_resp = await client.post(
+        "/sessions",
+        json={},
+        headers={"Authorization": f"Bearer {tutor_token}"},
+    )
+    session_id = create_resp.json()["session_id"]
+
+    # First end
+    resp1 = await client.patch(
+        f"/sessions/{session_id}/end",
+        headers={"Authorization": f"Bearer {tutor_token}"},
+    )
+    assert resp1.status_code == 200
+    end_time_1 = resp1.json()["end_time"]
+
+    # Second end — should be idempotent
+    resp2 = await client.patch(
+        f"/sessions/{session_id}/end",
+        headers={"Authorization": f"Bearer {tutor_token}"},
+    )
+    assert resp2.status_code == 200
+    end_time_2 = resp2.json()["end_time"]
+
+    # End time should not change (strip timezone suffix for SQLite compat)
+    assert end_time_1.replace("+00:00", "") == end_time_2.replace("+00:00", "")

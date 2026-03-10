@@ -268,6 +268,14 @@ async def end_session(
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    # Idempotent: if already completed, return the existing end_time
+    if session.status == SessionStatus.COMPLETED:
+        end_time = session.end_time or datetime.now(UTC)
+        return EndSessionResponse(
+            session_id=str(session.id),
+            end_time=end_time.isoformat(),
+        )
+
     now = datetime.now(UTC)
     session.status = SessionStatus.COMPLETED
     session.end_time = now

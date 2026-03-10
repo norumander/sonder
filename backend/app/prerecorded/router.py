@@ -125,12 +125,17 @@ async def process_upload(
             logger.warning("Failed to update session status after processing error: %s", session_id)
     finally:
         processor.close()
-        # Clean up temp files
+        # Clean up temp files and parent directory
+        upload_dir = Path(tutor_video_path).parent
         for path in [tutor_video_path, student_video_path]:
             try:
                 Path(path).unlink(missing_ok=True)
             except Exception:
                 pass
+        try:
+            upload_dir.rmdir()  # Only succeeds if empty (safe)
+        except Exception:
+            pass
 
 
 @router.post("/sessions/upload", response_model=UploadResponse, status_code=201)

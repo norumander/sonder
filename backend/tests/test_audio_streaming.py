@@ -210,7 +210,8 @@ def test_audio_chunk_stored_in_buffer(sync_client, tutor_and_session):
         # Follow-up ensures the audio_chunk was processed
         ws.send_json({"type": "ping"})
 
-    chunks = audio_buffer.get_chunks(session_id, "tutor")
-    assert len(chunks) >= 1
-    assert chunks[0]["data"] == b64_data
-    assert chunks[0]["timestamp"] == 1000
+        # Check buffer while connection is open (tutor disconnect clears it)
+        chunks = audio_buffer.get_chunks(session_id, "tutor")
+        assert len(chunks) >= 1
+        assert chunks[0]["data"] == b64_data
+        assert chunks[0]["timestamp"] == 1000

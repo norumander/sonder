@@ -227,7 +227,11 @@ async def _broadcast_session_ended(session_id: str, reason: str) -> None:
 
 
 async def _end_session_in_db(session_id: str) -> None:
-    """Mark the session as completed in the database."""
+    """Mark the session as completed in the database (idempotent).
+
+    Only updates sessions that are not already completed, preventing
+    double-end from overwriting the original end_time.
+    """
     try:
         factory = _get_session_factory()
         async with factory() as db:
@@ -237,7 +241,10 @@ async def _end_session_in_db(session_id: str) -> None:
 
             await db.execute(
                 update(SessionModel)
-                .where(SessionModel.id == session_id)
+                .where(
+                    SessionModel.id == session_id,
+                    SessionModel.status != SessionStatus.COMPLETED,
+                )
                 .values(
                     status=SessionStatus.COMPLETED,
                     end_time=datetime.now(UTC),
@@ -407,8 +414,11 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
                     _reconnect_timeout(session_id)
                 )
 
-        # Clean up session state when tutor disconnects
+        # Clean up all session state when tutor disconnects
         if role == "tutor":
             _session_preferences.pop(session_id, None)
             nudge_engine.clear_session(session_id)
             degradation_tracker.clear_session(session_id)
+            audio_buffer.clear_session(session_id)
+            client_metrics_buffer.clear_session(session_id)
+            metrics_aggregator.clear_session(session_id)

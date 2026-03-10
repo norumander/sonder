@@ -211,11 +211,12 @@ def test_client_metrics_stored_in_buffer(sync_client, tutor_and_session):
         })
         ws.send_json({"type": "ping"})
 
-    latest = client_metrics_buffer.get_latest(session_id, "tutor")
-    assert latest is not None
-    assert latest["eye_contact_score"] == 0.85
-    assert latest["facial_energy"] == 0.6
-    assert latest["timestamp"] == 1000
+        # Check buffer while connection is open (tutor disconnect clears it)
+        latest = client_metrics_buffer.get_latest(session_id, "tutor")
+        assert latest is not None
+        assert latest["eye_contact_score"] == 0.85
+        assert latest["facial_energy"] == 0.6
+        assert latest["timestamp"] == 1000
 
 
 def test_client_metrics_null_values_accepted(sync_client, tutor_and_session):
@@ -237,10 +238,11 @@ def test_client_metrics_null_values_accepted(sync_client, tutor_and_session):
         })
         ws.send_json({"type": "ping"})
 
-    latest = client_metrics_buffer.get_latest(session_id, "tutor")
-    assert latest is not None
-    assert latest["eye_contact_score"] is None
-    assert latest["facial_energy"] is None
+        # Check buffer while connection is open (tutor disconnect clears it)
+        latest = client_metrics_buffer.get_latest(session_id, "tutor")
+        assert latest is not None
+        assert latest["eye_contact_score"] is None
+        assert latest["facial_energy"] is None
 
 
 def test_student_client_metrics_stored_separately(sync_client, tutor_and_session):

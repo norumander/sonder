@@ -152,7 +152,9 @@ class NudgeEngine:
     ) -> bool:
         threshold_minutes = thresholds.get("student_silent_minutes", 3)
         threshold_ms = threshold_minutes * 60 * 1000
-        student_talk = snapshot.get("student_talk_pct", 0)
+        student_talk = snapshot.get("student_talk_pct")
+        if student_talk is None:
+            student_talk = 0
 
         if student_talk < 1.0:  # Effectively silent
             if state.student_silent_since is None:
@@ -218,7 +220,9 @@ class NudgeEngine:
         talk_threshold = thresholds.get("tutor_talk_pct", 0.8) * 100  # Convert to percentage
         duration_minutes = thresholds.get("tutor_talk_duration_minutes", 5)
         duration_ms = duration_minutes * 60 * 1000
-        tutor_talk = snapshot.get("tutor_talk_pct", 0)
+        tutor_talk = snapshot.get("tutor_talk_pct")
+        if tutor_talk is None:
+            tutor_talk = 0
 
         if tutor_talk > talk_threshold:
             if state.tutor_dominant_since is None:
@@ -274,7 +278,7 @@ class NudgeEngine:
         count_threshold = thresholds.get("interruption_count", 3)
         window_minutes = thresholds.get("interruption_window_minutes", 2)
         window_ms = window_minutes * 60 * 1000
-        current_count = snapshot.get("interruption_count", 0)
+        current_count = snapshot.get("interruption_count") or 0
 
         # Track count over time to detect new interruptions in window
         state.interruption_history.append((ts, current_count))
