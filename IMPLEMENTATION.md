@@ -450,16 +450,16 @@ _None yet._
 - **Blockers**: None
 - **Open Questions**: None
 
-### Checkpoint — 2026-03-09 20:15
-- **Phase**: Post-completion — Code Review & Fixes
-- **Completed**: Comprehensive code review identified 32 issues across 6 categories. Fixed all actionable issues in 4 commits (Chunks 1-2 already committed before this session, Chunks 3-6 in this session):
-  - **Chunk 1 (backend critical)**: Session-scoped drift detector, WS session ownership, JWT warning, logging levels
-  - **Chunk 2 (backend security)**: File size limits, pagination cap, blocking I/O in async endpoints
-  - **Chunk 3 (frontend bugs)**: consumeAudioChunks race condition (ref buffer), useNudgeQueue stale closure (ref), isStreaming useState+event listeners, beforeunload WS message, response.json() error guard
-  - **Chunk 4 (code quality)**: API_BASE shared config (7 files), useWebSocketReady hook extraction, named constants in metricUtils.ts, _analyze_audio helper in video_processor.py
-  - **Chunk 5 (test quality)**: Survey found no issues — test naming, cleanup, and patterns all excellent. 3 asyncio.sleep() calls in timer tests are justified.
-  - **Chunk 6 (docker/config)**: .dockerignore files for backend+frontend, parameterized DB credentials in docker-compose.yml
-- **State**: All 26 tasks complete + code review fixes applied. 208 frontend tests passing. 235 backend tests passing. 4 new commits in this session.
-- **Next**: Project complete. No remaining tasks or issues.
+### Checkpoint — 2026-03-09 20:20
+- **Phase**: Post-completion — Code Review & Fixes (COMPLETE)
+- **Completed**: Comprehensive code review identified 32 issues across 6 categories. Fixed all actionable issues across 2 sessions (6 chunks total, 6 commits):
+  - **Chunk 1 (backend critical)**: Session-scoped drift detector (`attention_drift.py` keyed by `(session_id, role)` tuple), WS session ownership verification (`handler.py`), JWT default secret warning (`config.py`), logging level upgrades
+  - **Chunk 2 (backend security)**: File size limits + filename validation (`prerecorded/router.py`), pagination cap (`sessions/router.py`), blocking I/O wrapped in `asyncio.to_thread` (`auth/router.py`, `prerecorded/router.py`, `video_processor.py`)
+  - **Chunk 3 (frontend bugs)**: `consumeAudioChunks` race condition fixed with ref buffer, `useNudgeQueue.enqueue` stale closure fixed with ref, `isStreaming` reactive state via `useState`+event listeners, `beforeunload` uses WS instead of sendBeacon, `response.json()` guarded against non-JSON errors
+  - **Chunk 4 (code quality)**: `API_BASE` extracted to `shared/config.ts` (7 files deduplicated), `useWebSocketReady` hook extracted (2 hooks deduplicated), named constants in `metricUtils.ts`, `_analyze_audio` helper in `video_processor.py`
+  - **Chunk 5 (test quality)**: Survey found no issues — all tests have behavior-based names, proper cleanup, no flaky patterns
+  - **Chunk 6 (docker/config)**: `.dockerignore` files for backend+frontend, parameterized DB credentials in `docker-compose.yml`
+- **State**: All 26 tasks complete + all code review fixes applied. 208 frontend tests passing (25 files). 235 backend tests passing. Git clean on `main`. Project is feature-complete with reviewed, production-quality code.
+- **Next**: Project complete. No remaining tasks or issues. User may request new features, deployment, or further refinements.
 - **Blockers**: None
 - **Open Questions**: None
