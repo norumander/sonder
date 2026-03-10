@@ -96,29 +96,46 @@ class TestClientMetricsBuffer:
 
 
 @pytest.fixture
-async def db_session():
+async def db_engine():
     engine = create_async_engine("sqlite+aiosqlite://", echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with factory() as session:
-        yield session
+    yield engine
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
 @pytest.fixture
-async def test_app(db_session):
+async def db_session(db_engine):
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    async with factory() as session:
+        yield session
+
+
+@pytest.fixture
+async def test_app(db_engine, db_session):
     from app.database import get_db
     from app.main import app
+    from app.websocket import handler
 
     async def override_get_db():
         yield db_session
 
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
     app.dependency_overrides[get_db] = override_get_db
+    original_factory = handler._get_session_factory
+
+    def mock_factory():
+        return factory
+
+    handler._get_session_factory = mock_factory
+
     yield app
+
     app.dependency_overrides.clear()
+    handler._get_session_factory = original_factory
 
 
 @pytest.fixture

@@ -14,7 +14,7 @@ class TestEyeContactDrift:
         # Feed 20 seconds of low eye contact at 500ms intervals
         for t in range(0, 20_000, 500):
             result = detector.update(
-                role="student",
+                session_id="test-session", role="student",
                 eye_contact=0.2,
                 energy=0.5,
                 timestamp_ms=t,
@@ -27,7 +27,7 @@ class TestEyeContactDrift:
         detector = AttentionDriftDetector()
         for t in range(0, 10_000, 500):
             result = detector.update(
-                role="student",
+                session_id="test-session", role="student",
                 eye_contact=0.2,
                 energy=0.5,
                 timestamp_ms=t,
@@ -39,7 +39,7 @@ class TestEyeContactDrift:
         detector = AttentionDriftDetector()
         for t in range(0, 30_000, 500):
             result = detector.update(
-                role="tutor",
+                session_id="test-session", role="tutor",
                 eye_contact=0.5,
                 energy=0.5,
                 timestamp_ms=t,
@@ -51,10 +51,10 @@ class TestEyeContactDrift:
         detector = AttentionDriftDetector()
         # Trigger drift
         for t in range(0, 20_000, 500):
-            detector.update(role="student", eye_contact=0.1, energy=0.5, timestamp_ms=t)
+            detector.update(session_id="test-session", role="student", eye_contact=0.1, energy=0.5, timestamp_ms=t)
         # Recover
         result = detector.update(
-            role="student", eye_contact=0.8, energy=0.5, timestamp_ms=20_000
+            session_id="test-session", role="student", eye_contact=0.8, energy=0.5, timestamp_ms=20_000
         )
         assert result.drifting is False
         assert result.reason is None
@@ -64,7 +64,7 @@ class TestEyeContactDrift:
         detector = AttentionDriftDetector()
         for t in range(0, 15_001, 500):
             result = detector.update(
-                role="student",
+                session_id="test-session", role="student",
                 eye_contact=0.2,
                 energy=0.5,
                 timestamp_ms=t,
@@ -80,11 +80,11 @@ class TestEnergyDropDrift:
         detector = AttentionDriftDetector()
         # Build up 2 minutes of high energy
         for t in range(0, 120_000, 2000):
-            detector.update(role="tutor", eye_contact=0.8, energy=0.8, timestamp_ms=t)
+            detector.update(session_id="test-session", role="tutor", eye_contact=0.8, energy=0.8, timestamp_ms=t)
 
         # Sudden drop to 0.3 (delta = 0.5, > 0.3 threshold)
         result = detector.update(
-            role="tutor", eye_contact=0.8, energy=0.3, timestamp_ms=120_000
+            session_id="test-session", role="tutor", eye_contact=0.8, energy=0.3, timestamp_ms=120_000
         )
         assert result.drifting is True
         assert result.reason == "energy_drop"
@@ -95,11 +95,11 @@ class TestEnergyDropDrift:
         # Gradually decrease energy from 0.8 to 0.6 over 2 minutes
         for i, t in enumerate(range(0, 120_000, 2000)):
             energy = 0.8 - (i * 0.003)  # Very gradual drop
-            detector.update(role="tutor", eye_contact=0.8, energy=energy, timestamp_ms=t)
+            detector.update(session_id="test-session", role="tutor", eye_contact=0.8, energy=energy, timestamp_ms=t)
 
         # Current energy still within 0.3 of the rolling average
         result = detector.update(
-            role="tutor", eye_contact=0.8, energy=0.6, timestamp_ms=120_000
+            session_id="test-session", role="tutor", eye_contact=0.8, energy=0.6, timestamp_ms=120_000
         )
         assert result.drifting is False
 
@@ -108,14 +108,14 @@ class TestEnergyDropDrift:
         detector = AttentionDriftDetector()
         # Build baseline
         for t in range(0, 120_000, 2000):
-            detector.update(role="tutor", eye_contact=0.8, energy=0.8, timestamp_ms=t)
+            detector.update(session_id="test-session", role="tutor", eye_contact=0.8, energy=0.8, timestamp_ms=t)
 
         # Trigger drift
-        detector.update(role="tutor", eye_contact=0.8, energy=0.2, timestamp_ms=120_000)
+        detector.update(session_id="test-session", role="tutor", eye_contact=0.8, energy=0.2, timestamp_ms=120_000)
 
         # Recover energy
         result = detector.update(
-            role="tutor", eye_contact=0.8, energy=0.7, timestamp_ms=122_000
+            session_id="test-session", role="tutor", eye_contact=0.8, energy=0.7, timestamp_ms=122_000
         )
         assert result.drifting is False
 
@@ -124,11 +124,11 @@ class TestEnergyDropDrift:
         detector = AttentionDriftDetector()
         # Only 30 seconds of data
         for t in range(0, 30_000, 2000):
-            detector.update(role="tutor", eye_contact=0.8, energy=0.8, timestamp_ms=t)
+            detector.update(session_id="test-session", role="tutor", eye_contact=0.8, energy=0.8, timestamp_ms=t)
 
         # Big drop but not enough history
         result = detector.update(
-            role="tutor", eye_contact=0.8, energy=0.1, timestamp_ms=30_000
+            session_id="test-session", role="tutor", eye_contact=0.8, energy=0.1, timestamp_ms=30_000
         )
         assert result.drifting is False
 
@@ -141,13 +141,13 @@ class TestIndependentRoles:
         detector = AttentionDriftDetector()
         # Tutor has low eye contact for 20s
         for t in range(0, 20_000, 500):
-            detector.update(role="tutor", eye_contact=0.1, energy=0.5, timestamp_ms=t)
+            detector.update(session_id="test-session", role="tutor", eye_contact=0.1, energy=0.5, timestamp_ms=t)
 
         tutor_result = detector.update(
-            role="tutor", eye_contact=0.1, energy=0.5, timestamp_ms=20_000
+            session_id="test-session", role="tutor", eye_contact=0.1, energy=0.5, timestamp_ms=20_000
         )
         student_result = detector.update(
-            role="student", eye_contact=0.9, energy=0.5, timestamp_ms=20_000
+            session_id="test-session", role="student", eye_contact=0.9, energy=0.5, timestamp_ms=20_000
         )
         assert tutor_result.drifting is True
         assert student_result.drifting is False
@@ -161,7 +161,7 @@ class TestNullMetrics:
         detector = AttentionDriftDetector()
         for t in range(0, 20_000, 500):
             result = detector.update(
-                role="student", eye_contact=None, energy=0.5, timestamp_ms=t
+                session_id="test-session", role="student", eye_contact=None, energy=0.5, timestamp_ms=t
             )
         assert result.drifting is False
 
@@ -169,9 +169,9 @@ class TestNullMetrics:
         """Null energy values should not trigger energy-based drift."""
         detector = AttentionDriftDetector()
         for t in range(0, 120_000, 2000):
-            detector.update(role="tutor", eye_contact=0.8, energy=0.8, timestamp_ms=t)
+            detector.update(session_id="test-session", role="tutor", eye_contact=0.8, energy=0.8, timestamp_ms=t)
         result = detector.update(
-            role="tutor", eye_contact=0.8, energy=None, timestamp_ms=120_000
+            session_id="test-session", role="tutor", eye_contact=0.8, energy=None, timestamp_ms=120_000
         )
         assert result.drifting is False
 
@@ -182,7 +182,7 @@ class TestDriftResult:
     def test_drift_result_has_role(self):
         detector = AttentionDriftDetector()
         result = detector.update(
-            role="tutor", eye_contact=0.8, energy=0.5, timestamp_ms=0
+            session_id="test-session", role="tutor", eye_contact=0.8, energy=0.5, timestamp_ms=0
         )
         assert result.role == "tutor"
         assert result.drifting is False

@@ -1,6 +1,12 @@
 """Application configuration loaded from environment variables."""
 
+import logging
+
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_JWT_SECRET = "dev-secret-change-in-production"
 
 
 class Settings(BaseSettings):
@@ -11,7 +17,7 @@ class Settings(BaseSettings):
 
     # Auth
     google_client_id: str = ""
-    jwt_secret: str = "dev-secret-change-in-production"
+    jwt_secret: str = _DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
 
@@ -22,3 +28,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+if settings.jwt_secret == _DEFAULT_JWT_SECRET:
+    logger.warning(
+        "SONDER_JWT_SECRET is using the default value. "
+        "Set a secure random secret via environment variable."
+    )
+if not settings.google_client_id:
+    logger.warning(
+        "SONDER_GOOGLE_CLIENT_ID is not set. Google OAuth will not work."
+    )

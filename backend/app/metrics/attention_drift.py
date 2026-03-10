@@ -110,28 +110,31 @@ class _ParticipantState:
 
 
 class AttentionDriftDetector:
-    """Detects attention drift independently for tutor and student.
+    """Detects attention drift independently per session and participant.
 
-    Tracks per-participant state and evaluates two drift conditions:
+    Tracks per-session, per-participant state and evaluates two drift conditions:
     1. Eye contact below 0.3 for more than 15 consecutive seconds
     2. Energy drop greater than 0.3 from 2-minute rolling average
     """
 
     def __init__(self) -> None:
-        self._states: dict[str, _ParticipantState] = defaultdict(
+        # Keyed by (session_id, role) to isolate sessions
+        self._states: dict[tuple[str, str], _ParticipantState] = defaultdict(
             _ParticipantState
         )
 
     def update(
         self,
+        session_id: str,
         role: str,
         eye_contact: float | None,
         energy: float | None,
         timestamp_ms: int,
     ) -> DriftResult:
-        """Update drift detection for a participant.
+        """Update drift detection for a participant in a session.
 
         Args:
+            session_id: Session identifier.
             role: "tutor" or "student".
             eye_contact: Eye contact score (0.0–1.0) or None if unavailable.
             energy: Combined energy score (0.0–1.0) or None if unavailable.
@@ -140,12 +143,10 @@ class AttentionDriftDetector:
         Returns:
             DriftResult with current drift state and reason.
         """
-        return self._states[role].update(role, eye_contact, energy, timestamp_ms)
+        return self._states[(session_id, role)].update(role, eye_contact, energy, timestamp_ms)
 
-    def clear(self, role: str) -> None:
-        """Reset drift state for a participant."""
-        self._states.pop(role, None)
-
-    def clear_all(self) -> None:
-        """Reset drift state for all participants."""
-        self._states.clear()
+    def clear_session(self, session_id: str) -> None:
+        """Reset drift state for all participants in a session."""
+        keys_to_remove = [k for k in self._states if k[0] == session_id]
+        for key in keys_to_remove:
+            del self._states[key]

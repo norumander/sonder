@@ -36,6 +36,9 @@ class MetricsAggregator:
         self._energy = EnergyScorer()
         self._drift = AttentionDriftDetector()
 
+        # Latest prosody features per session/role
+        self._prosody_cache: dict[str, dict[str, dict[str, float]]] = defaultdict(dict)
+
         # Latest client metrics per session/role
         self._client_metrics: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
 
@@ -78,6 +81,7 @@ class MetricsAggregator:
         # Update drift detection
         energy = self._compute_energy(session_id, role, facial_energy)
         drift_result = self._drift.update(
+            session_id=session_id,
             role=role,
             eye_contact=eye_contact,
             energy=energy,
@@ -134,8 +138,6 @@ class MetricsAggregator:
         prosody = self._prosody.analyze(b64_pcm)
 
         # Store latest prosody per role
-        if not hasattr(self, "_prosody_cache"):
-            self._prosody_cache: dict[str, dict[str, dict[str, float]]] = defaultdict(dict)
         self._prosody_cache[session_id][role] = prosody
 
     def get_snapshot(self, session_id: str, timestamp_ms: int) -> dict[str, Any]:
@@ -207,21 +209,18 @@ class MetricsAggregator:
         """Clean up all state for a session."""
         self._talk_time.clear_session(session_id)
         self._interruptions.clear_session(session_id)
-        self._drift.clear_all()
+        self._drift.clear_session(session_id)
         self._client_metrics.pop(session_id, None)
         self._vad_state.pop(session_id, None)
         self._prev_drift.pop(session_id, None)
         self._pending_drift_changes.pop(session_id, None)
-        if hasattr(self, "_prosody_cache"):
-            self._prosody_cache.pop(session_id, None)
+        self._prosody_cache.pop(session_id, None)
 
     def _compute_energy(
         self, session_id: str, role: str, facial_energy: float | None
     ) -> float | None:
         """Compute combined energy score for a participant."""
-        prosody = None
-        if hasattr(self, "_prosody_cache"):
-            prosody = self._prosody_cache.get(session_id, {}).get(role)
+        prosody = self._prosody_cache.get(session_id, {}).get(role)
 
         if prosody is None and facial_energy is None:
             return None

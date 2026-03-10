@@ -108,18 +108,21 @@ async def process_upload(
         )
     except Exception:
         logger.exception("Failed to process pre-recorded session %s", session_id)
-        # Mark session as completed even on failure
-        async with async_session_factory() as db:
-            from sqlalchemy import select
+        # Leave session as ACTIVE (not falsely completed) so the tutor
+        # can see it did not finish. The lack of an end_time indicates failure.
+        try:
+            async with async_session_factory() as db:
+                from sqlalchemy import select
 
-            sess_result = await db.execute(
-                select(Session).where(Session.id == session_id)
-            )
-            session = sess_result.scalar_one_or_none()
-            if session:
-                session.status = SessionStatus.COMPLETED
-                session.end_time = datetime.now(UTC)
-            await db.commit()
+                sess_result = await db.execute(
+                    select(Session).where(Session.id == session_id)
+                )
+                session = sess_result.scalar_one_or_none()
+                if session:
+                    session.status = SessionStatus.WAITING
+                await db.commit()
+        except Exception:
+            logger.warning("Failed to update session status after processing error: %s", session_id)
     finally:
         processor.close()
         # Clean up temp files

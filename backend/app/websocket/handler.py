@@ -91,7 +91,7 @@ async def _load_tutor_preferences(session_id: str, tutor_id: str) -> None:
             prefs = result.scalar_one_or_none()
             _session_preferences[session_id] = prefs if prefs else DEFAULT_PREFERENCES
     except Exception:
-        logger.debug("Failed to load tutor preferences for session=%s", session_id)
+        logger.warning("Failed to load tutor preferences for session=%s", session_id)
         _session_preferences[session_id] = DEFAULT_PREFERENCES
 
 
@@ -114,7 +114,7 @@ async def _persist_nudge(
             db.add(nudge)
             await db.commit()
     except Exception:
-        logger.debug("Failed to persist nudge for session=%s", session_id)
+        logger.warning("Failed to persist nudge for session=%s", session_id)
 
 
 async def _heartbeat_loop(websocket: WebSocket) -> None:
@@ -246,7 +246,7 @@ async def _end_session_in_db(session_id: str) -> None:
             )
             await db.commit()
     except Exception:
-        logger.debug("Failed to update session status: session=%s", session_id)
+        logger.warning("Failed to update session status: session=%s", session_id)
 
 
 async def _reconnect_timeout(session_id: str) -> None:
@@ -277,6 +277,34 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
         return
 
     role, subject_id = auth_result
+
+    # Verify tutor owns this session
+    if role == "tutor":
+        try:
+            import uuid as _uuid
+
+            sid = _uuid.UUID(session_id)
+            tid = _uuid.UUID(subject_id)
+            factory = _get_session_factory()
+            async with factory() as db:
+                from app.models.models import Session as SessionModel
+
+                result = await db.execute(
+                    select(SessionModel).where(
+                        SessionModel.id == sid,
+                        SessionModel.tutor_id == tid,
+                    )
+                )
+                if result.scalar_one_or_none() is None:
+                    await websocket.close(code=4003, reason="Not authorized for this session")
+                    return
+        except ValueError:
+            await websocket.close(code=4001, reason="Authentication failed")
+            return
+        except Exception:
+            logger.warning("Failed to verify session ownership: session=%s", session_id)
+            await websocket.close(code=4001, reason="Authentication failed")
+            return
 
     # Check if slot is available
     if registry.connection_count(session_id) >= 2 or registry.is_slot_occupied(session_id, role):
