@@ -525,3 +525,19 @@ _None yet._
 - **Next**: Project is fully wired. No remaining chunks. User may request deployment, additional features, or polish.
 - **Blockers**: None
 - **Open Questions**: None
+
+### Checkpoint — 2026-03-09 23:00
+- **Phase**: Post-completion — E2E Testing & Bug Fixes
+- **Completed**:
+  - Committed Chunk A (auth flow, session creation, navigation — 6 new files) and Chunk B (TutorSessionPage with live dashboard wiring — 2 new files)
+  - Fixed pydantic Settings crash: added `extra="ignore"` to allow root `.env` with Docker/frontend vars
+  - Ran first E2E test with user — identified 4 bugs:
+    1. **Metrics never populated**: `useMetricsStreaming` effect depended on `ws` ref (never changes) instead of `isStreaming` state. Fixed to depend on `isStreaming` so it re-runs when WS opens.
+    2. **Camera not displaying on both sides**: Root cause same as #1 — broken WS pipeline.
+    3. **Session end not reaching student**: `endSession()` immediately set `sessionEnded=true`, unmounting component and closing WS before backend could broadcast to student. Fixed with 500ms deferred state update.
+    4. **Analytics white screen**: `MetricSummarySection` crashed on `metrics.eye_contact.avg` when session had empty metrics (`{}`). Added null checks and "No metric data" fallback.
+  - All fixes committed. 233 frontend tests, 273 backend tests — all passing.
+- **State**: All 26 tasks + code review + remediation + frontend wiring + E2E bug fixes complete. Backend running on :8000, frontend on :5173, PostgreSQL on :5433. Google OAuth configured with real credentials. Servers auto-reload on code changes. User needs to re-test the E2E flow with the fixes applied.
+- **Next**: User should hard-refresh both browser windows and re-test the full E2E flow (login → create session → student joins → watch metrics → end session → analytics). If issues remain, debug further. If all works, project is complete.
+- **Blockers**: None
+- **Open Questions**: None
