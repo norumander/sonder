@@ -507,3 +507,21 @@ _None yet._
   Then checkpoint and move to Chunk B (live session pages).
 - **Blockers**: None
 - **Open Questions**: None
+
+### Checkpoint — 2026-03-09 22:30
+- **Phase**: Post-completion — Frontend UI Wiring COMPLETE
+- **Completed**: Chunk A (Auth + Session Creation + Navigation) and Chunk B (TutorSessionPage with live dashboard wiring). All page-level routing is fully wired:
+  - `/login` → LoginPage (Google OAuth sign-in)
+  - `/join`, `/join/:code` → StudentJoinPage → StudentSession (WebSocket auto-created)
+  - `/sessions/new` → CreateSessionPage (form → join code → "Start Session" navigates to live session)
+  - `/session/:sessionId` → TutorSessionPage (webcam + LiveDashboard + NudgeContainer + lifecycle)
+  - `/analytics`, `/analytics/:sessionId` → Session list and detail with timeline charts
+  - `/trends` → Cross-session trend charts
+  - `/upload` → Pre-recorded video upload
+  - `/settings` → Nudge threshold configuration
+  - Auth: GoogleOAuthProvider → AuthProvider → ProtectedRoute guards all tutor pages
+  - NavLayout with tutor name display and logout
+- **State**: All 26 tasks + code review + remediation + frontend wiring complete. 233 frontend tests (31 files), 273 backend tests. App is fully functional end-to-end. No placeholder components remain.
+- **Next**: Project is fully wired. No remaining chunks. User may request deployment, additional features, or polish.
+- **Blockers**: None
+- **Open Questions**: None
