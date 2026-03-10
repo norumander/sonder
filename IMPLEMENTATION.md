@@ -1,7 +1,7 @@
 # IMPLEMENTATION.md
 
 ## Current Focus
-Steady-State Development — TASK-001 through TASK-025 complete, TASK-026 next.
+All 26 tasks complete. Project finished.
 
 ## Tasks
 
@@ -334,7 +334,7 @@ Steady-State Development — TASK-001 through TASK-025 complete, TASK-026 next.
 - **Dependencies**: TASK-007, TASK-014, TASK-015, TASK-019
 
 ### TASK-026: Docker Compose Setup & README
-- **Status**: TODO
+- **Status**: DONE (2026-03-09)
 - **Priority**: P1
 - **Description**: Create Docker Compose config running PostgreSQL + FastAPI + Vite dev server. Seed script creates tables on first run. README documents prerequisites, setup, Google OAuth config, tutor and student usage flows. Create `.env.example`.
 - **Acceptance Criteria**:
