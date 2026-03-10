@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from "./auth/useAuth";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { CreateSessionPage } from "./sessions/CreateSessionPage";
+import { TutorSessionPage } from "./sessions/TutorSessionPage";
 import { UploadForm } from "./sessions/UploadForm";
 import { AnalyticsListPage, AnalyticsDetailPage } from "./analytics/AnalyticsPage";
 import { TrendsPage } from "./analytics/TrendsPage";
@@ -40,7 +41,7 @@ function App() {
             <Route element={<NavLayout />}>
               <Route index element={<Navigate to="/sessions/new" replace />} />
               <Route path="/sessions/new" element={<CreateSessionPage />} />
-              <Route path="/session/:sessionId" element={<TutorSessionPlaceholder />} />
+              <Route path="/session/:sessionId" element={<TutorSessionRoute />} />
               <Route path="/analytics" element={<AuthAnalyticsList />} />
               <Route path="/analytics/:sessionId" element={<AuthAnalyticsDetail />} />
               <Route path="/trends" element={<AuthTrends />} />
@@ -152,23 +153,24 @@ function StudentSessionWithWs({
   return <StudentSession sessionId={sessionId} token={token} ws={ws} />;
 }
 
-// --- Tutor session placeholder (Chunk B) ---
+// --- Tutor live session with WebSocket ---
 
-function TutorSessionPlaceholder() {
+function TutorSessionRoute() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const { token } = useAuth();
 
-  return (
-    <div className="flex items-center justify-center p-12">
-      <div className="text-center">
-        <h2 className="text-lg font-semibold text-gray-800 mb-2">
-          Live Session
-        </h2>
-        <p className="text-gray-500 text-sm">
-          Session {sessionId} — live dashboard will be wired in next chunk.
-        </p>
-      </div>
-    </div>
-  );
+  const [ws] = useState<WebSocket | null>(() => {
+    if (!token || !sessionId) return null;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.host;
+    return new WebSocket(
+      `${protocol}//${host}/ws/session/${sessionId}?token=${token}`,
+    );
+  });
+
+  if (!sessionId || !token) return null;
+
+  return <TutorSessionPage sessionId={sessionId} token={token} ws={ws} />;
 }
 
 // --- Authenticated wrappers for existing components ---

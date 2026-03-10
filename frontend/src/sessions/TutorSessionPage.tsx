@@ -1,0 +1,114 @@
+/**
+ * Tutor's live session page.
+ *
+ * Wires media capture, face mesh, audio/metrics streaming, live dashboard,
+ * nudge toasts, and session lifecycle management. The tutor sees their own
+ * webcam preview alongside the real-time engagement dashboard.
+ */
+
+import { useRef, useEffect } from "react";
+import { useMediaCapture } from "../media/useMediaCapture";
+import { useFaceMesh } from "../metrics/useFaceMesh";
+import { useMetricsStreaming } from "../shared/useMetricsStreaming";
+import { useAudioStreaming } from "../shared/useAudioStreaming";
+import { useServerMetrics } from "../dashboard/useServerMetrics";
+import { useSessionLifecycle } from "./useSessionLifecycle";
+import { SessionEndedScreen } from "./SessionEndedScreen";
+import { LiveDashboard } from "../dashboard/LiveDashboard";
+import { NudgeContainer } from "../nudges/NudgeContainer";
+
+interface TutorSessionPageProps {
+  sessionId: string;
+  token: string;
+  ws: WebSocket | null;
+}
+
+/**
+ * Full tutor session view: webcam preview, live dashboard, nudge toasts,
+ * and an "End Session" button.
+ */
+export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { videoStream, status, error, consumeAudioChunks } = useMediaCapture();
+  const { eyeContactScore, facialEnergy } = useFaceMesh(videoRef.current);
+  const { sessionEnded, endReason, endSession } = useSessionLifecycle(sessionId, token, ws);
+  const serverMetricsState = useServerMetrics(ws);
+
+  // Stream metrics and audio to server
+  useMetricsStreaming(ws, eyeContactScore, facialEnergy);
+  const { sendAudioChunks } = useAudioStreaming(ws);
+
+  // Flush audio chunks every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const chunks = consumeAudioChunks();
+      if (chunks.length > 0) {
+        sendAudioChunks(chunks);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [consumeAudioChunks, sendAudioChunks]);
+
+  // Attach video stream to <video> element
+  useEffect(() => {
+    if (videoRef.current && videoStream) {
+      videoRef.current.srcObject = videoStream;
+    }
+  }, [videoStream]);
+
+  if (sessionEnded) {
+    return <SessionEndedScreen reason={endReason} />;
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <div className="text-center max-w-md">
+          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-gray-500 text-sm">
+            Camera access is required for the tutor session.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-57px)]" data-testid="tutor-session">
+      {/* Left column: webcam + controls */}
+      <div className="flex w-80 flex-col border-r bg-gray-900 p-4">
+        <div className="rounded-lg overflow-hidden bg-black mb-4">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 mb-4">
+          <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-white text-xs font-medium">Live</span>
+        </div>
+
+        <div className="mt-auto">
+          <button
+            onClick={endSession}
+            className="w-full rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+          >
+            End Session
+          </button>
+        </div>
+      </div>
+
+      {/* Right column: live dashboard */}
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        <LiveDashboard state={serverMetricsState} />
+      </div>
+
+      {/* Nudge toast overlay */}
+      <NudgeContainer ws={ws} />
+    </div>
+  );
+}
