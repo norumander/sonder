@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
+import { API_BASE } from "../shared/config";
 import type { TrendDataPoint } from "./types";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 interface UseTrendsResult {
   sessions: TrendDataPoint[];

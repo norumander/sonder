@@ -120,41 +120,15 @@ class VideoProcessor:
                 student_face = self._analyze_face(student_frame_map[ts_ms])
 
             # Audio analysis for tutor
-            tutor_audio_chunk = self._get_audio_chunk(
-                tutor_audio, ts_ms, sample_interval_ms
+            tutor_prosody, tutor_is_speech = self._analyze_audio(
+                tutor_audio, ts_ms, sample_interval_ms, session_id, "tutor",
             )
-            if tutor_audio_chunk:
-                b64 = base64.b64encode(tutor_audio_chunk).decode()
-                vad_result = self._vad.analyze_chunk(b64)
-                self._talk_time.update(
-                    session_id, "tutor",
-                    speech_frames=vad_result["speech_frames"],
-                    total_frames=vad_result["total_frames"],
-                )
-                tutor_prosody = self._prosody.analyze(b64)
-                tutor_is_speech = vad_result["is_speech"]
-            else:
-                tutor_prosody = None
-                tutor_is_speech = False
 
             # Audio analysis for student (with offset)
             student_audio_ts = ts_ms - timestamp_offset_ms
-            student_audio_chunk = self._get_audio_chunk(
-                student_audio, student_audio_ts, sample_interval_ms
+            student_prosody, student_is_speech = self._analyze_audio(
+                student_audio, student_audio_ts, sample_interval_ms, session_id, "student",
             )
-            if student_audio_chunk:
-                b64 = base64.b64encode(student_audio_chunk).decode()
-                vad_result = self._vad.analyze_chunk(b64)
-                self._talk_time.update(
-                    session_id, "student",
-                    speech_frames=vad_result["speech_frames"],
-                    total_frames=vad_result["total_frames"],
-                )
-                student_prosody = self._prosody.analyze(b64)
-                student_is_speech = vad_result["is_speech"]
-            else:
-                student_prosody = None
-                student_is_speech = False
 
             # Interruption detection
             self._interruptions.update(
@@ -187,6 +161,40 @@ class VideoProcessor:
             snapshots.append(snapshot)
 
         return {"session_id": session_id, "snapshots": snapshots}
+
+    def _analyze_audio(
+        self,
+        audio_data: bytes,
+        start_ms: int,
+        duration_ms: int,
+        session_id: str,
+        role: str,
+    ) -> tuple[dict[str, float] | None, bool]:
+        """Analyze an audio chunk for VAD, talk time, and prosody.
+
+        Args:
+            audio_data: Complete raw PCM audio bytes.
+            start_ms: Start position in milliseconds.
+            duration_ms: Duration of chunk in milliseconds.
+            session_id: Session identifier for talk time tracking.
+            role: Participant role ("tutor" or "student").
+
+        Returns:
+            Tuple of (prosody_result, is_speech).
+        """
+        chunk = self._get_audio_chunk(audio_data, start_ms, duration_ms)
+        if not chunk:
+            return None, False
+
+        b64 = base64.b64encode(chunk).decode()
+        vad_result = self._vad.analyze_chunk(b64)
+        self._talk_time.update(
+            session_id, role,
+            speech_frames=vad_result["speech_frames"],
+            total_frames=vad_result["total_frames"],
+        )
+        prosody = self._prosody.analyze(b64)
+        return prosody, vad_result["is_speech"]
 
     def _extract_audio(self, video_path: str) -> bytes:
         """Extract audio from video file as raw 16kHz 16-bit LE mono PCM.

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { API_BASE } from "../shared/config";
 import type { SessionListItem } from "./types";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 interface UseSessionListResult {
   sessions: SessionListItem[];
