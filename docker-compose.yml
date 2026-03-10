@@ -2,15 +2,15 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: sonder
-      POSTGRES_PASSWORD: sonder
-      POSTGRES_DB: sonder
+      POSTGRES_USER: ${POSTGRES_USER:-sonder}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sonder}
+      POSTGRES_DB: ${POSTGRES_DB:-sonder}
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sonder"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sonder}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -23,7 +23,7 @@ services:
       - path: .env
         required: false
     environment:
-      SONDER_DATABASE_URL: postgresql+asyncpg://sonder:sonder@db:5432/sonder
+      SONDER_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sonder}:${POSTGRES_PASSWORD:-sonder}@db:5432/${POSTGRES_DB:-sonder}
     depends_on:
       db:
         condition: service_healthy
