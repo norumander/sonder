@@ -11,7 +11,8 @@ import {
   formatMetricValue,
   getMetricStatus,
 } from "./metricUtils";
-import type { ServerMetricsState } from "./useServerMetrics";
+import type { DegradationWarnings, ServerMetricsState } from "./useServerMetrics";
+import { degradationKey } from "./useServerMetrics";
 
 interface LiveDashboardProps {
   state: ServerMetricsState;
@@ -37,11 +38,64 @@ function extractParticipant(
   };
 }
 
+function DegradationBanner({
+  role,
+  warnings,
+  connected,
+}: {
+  role: "tutor" | "student";
+  warnings: DegradationWarnings;
+  connected?: boolean;
+}) {
+  const banners: { message: string; testId: string }[] = [];
+
+  if (connected === false) {
+    banners.push({
+      message: `${role === "tutor" ? "Tutor" : "Student"} disconnected`,
+      testId: `warning-${role}-disconnected`,
+    });
+  }
+
+  const faceKey = degradationKey(role, "face_not_detected");
+  if (warnings[faceKey]) {
+    banners.push({
+      message: `${role === "tutor" ? "Tutor" : "Student"} face not detected`,
+      testId: `warning-${role}-face`,
+    });
+  }
+
+  const audioKey = degradationKey(role, "audio_unavailable");
+  if (warnings[audioKey]) {
+    banners.push({
+      message: `${role === "tutor" ? "Tutor" : "Student"} audio unavailable`,
+      testId: `warning-${role}-audio`,
+    });
+  }
+
+  if (banners.length === 0) return null;
+
+  return (
+    <div className="space-y-1">
+      {banners.map((b) => (
+        <div
+          key={b.testId}
+          data-testid={b.testId}
+          className="rounded bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 border border-amber-200"
+        >
+          {b.message}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ParticipantSection({
   label,
   participant,
   trends,
   connected,
+  role,
+  warnings,
 }: {
   label: string;
   participant: ParticipantMetrics;
@@ -51,6 +105,8 @@ function ParticipantSection({
     talk_pct: TrendDirection;
   };
   connected?: boolean;
+  role: "tutor" | "student";
+  warnings: DegradationWarnings;
 }) {
   return (
     <div className="flex-1" data-testid={`section-${label.toLowerCase()}`}>
@@ -65,6 +121,7 @@ function ParticipantSection({
           />
         )}
       </div>
+      <DegradationBanner role={role} warnings={warnings} connected={connected} />
       <div className="grid grid-cols-2 gap-2">
         <MetricCard
           label="Eye Contact"
@@ -114,7 +171,8 @@ function EngagementBadge({ score }: { score: number }) {
 }
 
 export function LiveDashboard({ state }: LiveDashboardProps) {
-  const { metrics, studentConnected, trends, engagementScore } = state;
+  const { metrics, studentConnected, trends, engagementScore, degradationWarnings } =
+    state;
 
   if (!metrics) {
     return (
@@ -156,6 +214,8 @@ export function LiveDashboard({ state }: LiveDashboardProps) {
             energy: trends.tutor_energy,
             talk_pct: trends.tutor_talk_pct,
           }}
+          role="tutor"
+          warnings={degradationWarnings}
         />
         <ParticipantSection
           label="Student"
@@ -166,6 +226,8 @@ export function LiveDashboard({ state }: LiveDashboardProps) {
             talk_pct: trends.student_talk_pct,
           }}
           connected={studentConnected}
+          role="student"
+          warnings={degradationWarnings}
         />
       </div>
     </div>

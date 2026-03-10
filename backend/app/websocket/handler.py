@@ -16,6 +16,7 @@ from app.auth.jwt import decode_access_token
 from app.auth.router import DEFAULT_PREFERENCES
 from app.metrics.aggregator import MetricsAggregator
 from app.metrics.buffer import ClientMetricsBuffer
+from app.metrics.degradation import DegradationTracker
 from app.models.models import Nudge, NudgePriority, NudgeType, SessionStatus, Tutor
 from app.nudges.engine import NudgeEngine
 from app.websocket.registry import ConnectionRegistry
@@ -28,6 +29,7 @@ audio_buffer = AudioChunkBuffer()
 client_metrics_buffer = ClientMetricsBuffer()
 metrics_aggregator = MetricsAggregator()
 nudge_engine = NudgeEngine()
+degradation_tracker = DegradationTracker()
 
 # Per-session tutor preferences cache (loaded on connect, updated per broadcast)
 _session_preferences: dict[str, dict] = {}
@@ -180,6 +182,19 @@ async def _broadcast_metrics(session_id: str, timestamp_ms: int) -> None:
             )
 
 
+async def _send_degradation_change(session_id: str, change) -> None:
+    """Send a degradation_warning message to the tutor if a state change occurred."""
+    if change is not None:
+        await _send_to_tutor(session_id, {
+            "type": "degradation_warning",
+            "data": {
+                "role": change.role,
+                "warning_type": change.warning_type,
+                "active": change.active,
+            },
+        })
+
+
 async def _notify_student_status(session_id: str, connected: bool) -> None:
     """Notify the tutor about student connection status changes."""
     await _send_to_tutor(session_id, {
@@ -314,23 +329,35 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
                 metrics_aggregator.process_audio_chunk(
                     session_id, role, data.get("data", ""), timestamp
                 )
+                # Track audio liveness for degradation detection
+                audio_change = degradation_tracker.update_audio_status(
+                    session_id, role, timestamp
+                )
+                await _send_degradation_change(session_id, audio_change)
             elif msg_type == "client_metrics":
                 metrics_data = data.get("data", {})
+                eye_contact = metrics_data.get("eye_contact_score")
+                facial_energy = metrics_data.get("facial_energy")
                 client_metrics_buffer.add_metrics(
-                    session_id,
-                    role,
-                    metrics_data.get("eye_contact_score"),
-                    metrics_data.get("facial_energy"),
-                    timestamp,
+                    session_id, role, eye_contact, facial_energy, timestamp,
                 )
                 # Update aggregator with client metrics
                 metrics_aggregator.update_client_metrics(
-                    session_id,
-                    role,
-                    metrics_data.get("eye_contact_score"),
-                    metrics_data.get("facial_energy"),
-                    timestamp,
+                    session_id, role, eye_contact, facial_energy, timestamp,
                 )
+
+                # Track face detection for degradation warnings
+                face_change = degradation_tracker.update_face_status(
+                    session_id, role, eye_contact, timestamp
+                )
+                await _send_degradation_change(session_id, face_change)
+
+                # Check audio timeouts for both participants
+                for check_role in ("tutor", "student"):
+                    audio_timeout = degradation_tracker.check_audio_timeout(
+                        session_id, check_role, timestamp
+                    )
+                    await _send_degradation_change(session_id, audio_timeout)
 
                 # Broadcast metrics to tutor on each client_metrics update
                 await _broadcast_metrics(session_id, timestamp)
@@ -353,7 +380,8 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
                     _reconnect_timeout(session_id)
                 )
 
-        # Clean up nudge state when tutor disconnects
+        # Clean up session state when tutor disconnects
         if role == "tutor":
             _session_preferences.pop(session_id, None)
             nudge_engine.clear_session(session_id)
+            degradation_tracker.clear_session(session_id)

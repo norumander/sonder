@@ -35,6 +35,7 @@ function makeState(overrides: Partial<ServerMetricsState> = {}): ServerMetricsSt
     },
     engagementScore: 75,
     historyLength: 10,
+    degradationWarnings: {},
     ...overrides,
   };
 }
@@ -133,5 +134,73 @@ describe("LiveDashboard", () => {
     const state2 = makeState({ engagementScore: 85 });
     rerender(<LiveDashboard state={state2} />);
     expect(screen.getByTestId("engagement-score")).toHaveTextContent("85");
+  });
+
+  it("shows face not detected warning for student", () => {
+    const state = makeState({
+      degradationWarnings: { "student:face_not_detected": true },
+    });
+    render(<LiveDashboard state={state} />);
+    expect(screen.getByTestId("warning-student-face")).toBeInTheDocument();
+    expect(screen.getByText("Student face not detected")).toBeInTheDocument();
+  });
+
+  it("shows face not detected warning for tutor", () => {
+    const state = makeState({
+      degradationWarnings: { "tutor:face_not_detected": true },
+    });
+    render(<LiveDashboard state={state} />);
+    expect(screen.getByTestId("warning-tutor-face")).toBeInTheDocument();
+    expect(screen.getByText("Tutor face not detected")).toBeInTheDocument();
+  });
+
+  it("shows audio unavailable warning", () => {
+    const state = makeState({
+      degradationWarnings: { "student:audio_unavailable": true },
+    });
+    render(<LiveDashboard state={state} />);
+    expect(screen.getByTestId("warning-student-audio")).toBeInTheDocument();
+    expect(screen.getByText("Student audio unavailable")).toBeInTheDocument();
+  });
+
+  it("shows student disconnected warning when not connected", () => {
+    const state = makeState({ studentConnected: false });
+    render(<LiveDashboard state={state} />);
+    expect(screen.getByTestId("warning-student-disconnected")).toBeInTheDocument();
+    expect(screen.getByText("Student disconnected")).toBeInTheDocument();
+  });
+
+  it("does not show disconnected warning when connected", () => {
+    const state = makeState({ studentConnected: true });
+    render(<LiveDashboard state={state} />);
+    expect(screen.queryByTestId("warning-student-disconnected")).not.toBeInTheDocument();
+  });
+
+  it("clears warning when degradation resolves", () => {
+    const state1 = makeState({
+      degradationWarnings: { "student:face_not_detected": true },
+    });
+    const { rerender } = render(<LiveDashboard state={state1} />);
+    expect(screen.getByTestId("warning-student-face")).toBeInTheDocument();
+
+    const state2 = makeState({
+      degradationWarnings: { "student:face_not_detected": false },
+    });
+    rerender(<LiveDashboard state={state2} />);
+    expect(screen.queryByTestId("warning-student-face")).not.toBeInTheDocument();
+  });
+
+  it("shows multiple warnings simultaneously", () => {
+    const state = makeState({
+      studentConnected: false,
+      degradationWarnings: {
+        "student:face_not_detected": true,
+        "student:audio_unavailable": true,
+      },
+    });
+    render(<LiveDashboard state={state} />);
+    expect(screen.getByTestId("warning-student-disconnected")).toBeInTheDocument();
+    expect(screen.getByTestId("warning-student-face")).toBeInTheDocument();
+    expect(screen.getByTestId("warning-student-audio")).toBeInTheDocument();
   });
 });

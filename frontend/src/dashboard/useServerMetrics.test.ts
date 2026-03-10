@@ -169,4 +169,78 @@ describe("useServerMetrics", () => {
 
     expect(result.current.metrics).toBeNull();
   });
+
+  it("initializes with empty degradation warnings", () => {
+    const ws = createMockWebSocket();
+    const { result } = renderHook(() => useServerMetrics(ws));
+    expect(result.current.degradationWarnings).toEqual({});
+  });
+
+  it("tracks degradation_warning activation", () => {
+    const ws = createMockWebSocket();
+    const { result } = renderHook(() => useServerMetrics(ws));
+
+    act(() => {
+      (ws as any)._emit("message", {
+        type: "degradation_warning",
+        data: {
+          role: "student",
+          warning_type: "face_not_detected",
+          active: true,
+        },
+      });
+    });
+
+    expect(result.current.degradationWarnings["student:face_not_detected"]).toBe(true);
+  });
+
+  it("tracks degradation_warning deactivation", () => {
+    const ws = createMockWebSocket();
+    const { result } = renderHook(() => useServerMetrics(ws));
+
+    act(() => {
+      (ws as any)._emit("message", {
+        type: "degradation_warning",
+        data: {
+          role: "student",
+          warning_type: "face_not_detected",
+          active: true,
+        },
+      });
+    });
+    expect(result.current.degradationWarnings["student:face_not_detected"]).toBe(true);
+
+    act(() => {
+      (ws as any)._emit("message", {
+        type: "degradation_warning",
+        data: {
+          role: "student",
+          warning_type: "face_not_detected",
+          active: false,
+        },
+      });
+    });
+    expect(result.current.degradationWarnings["student:face_not_detected"]).toBe(false);
+  });
+
+  it("tracks multiple degradation warnings independently", () => {
+    const ws = createMockWebSocket();
+    const { result } = renderHook(() => useServerMetrics(ws));
+
+    act(() => {
+      (ws as any)._emit("message", {
+        type: "degradation_warning",
+        data: { role: "student", warning_type: "face_not_detected", active: true },
+      });
+    });
+    act(() => {
+      (ws as any)._emit("message", {
+        type: "degradation_warning",
+        data: { role: "tutor", warning_type: "audio_unavailable", active: true },
+      });
+    });
+
+    expect(result.current.degradationWarnings["student:face_not_detected"]).toBe(true);
+    expect(result.current.degradationWarnings["tutor:audio_unavailable"]).toBe(true);
+  });
 });

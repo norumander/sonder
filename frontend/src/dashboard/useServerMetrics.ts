@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ServerMetrics, TrendDirection } from "../shared/types";
+import type { DegradationWarningType, ServerMetrics, TrendDirection } from "../shared/types";
 import { computeEngagementScore, computeTrend } from "./metricUtils";
 
 /** Maximum number of history samples to keep (~2 min at 2Hz). */
@@ -28,6 +28,9 @@ const DEFAULT_TRENDS: MetricTrends = {
   student_talk_pct: "stable",
 };
 
+/** Active degradation warnings keyed by "{role}:{warning_type}". */
+export type DegradationWarnings = Record<string, boolean>;
+
 export interface ServerMetricsState {
   /** Current metrics snapshot, or null if no data received yet. */
   metrics: ServerMetrics | null;
@@ -39,6 +42,16 @@ export interface ServerMetricsState {
   engagementScore: number;
   /** Number of history samples stored (for testing). */
   historyLength: number;
+  /** Active degradation warnings (face not detected, audio unavailable). */
+  degradationWarnings: DegradationWarnings;
+}
+
+/** Build a degradation warning key for lookups. */
+export function degradationKey(
+  role: string,
+  warningType: DegradationWarningType,
+): string {
+  return `${role}:${warningType}`;
 }
 
 export function useServerMetrics(ws: WebSocket | null): ServerMetricsState {
@@ -46,6 +59,8 @@ export function useServerMetrics(ws: WebSocket | null): ServerMetricsState {
   const [studentConnected, setStudentConnected] = useState(false);
   const [trends, setTrends] = useState<MetricTrends>(DEFAULT_TRENDS);
   const [engagementScore, setEngagementScore] = useState(0);
+  const [degradationWarnings, setDegradationWarnings] =
+    useState<DegradationWarnings>({});
   const historyRef = useRef<ServerMetrics[]>([]);
 
   const handleMessage = useCallback((event: MessageEvent) => {
@@ -81,6 +96,14 @@ export function useServerMetrics(ws: WebSocket | null): ServerMetricsState {
     } else if (msg.type === "student_status") {
       const data = msg.data as { connected: boolean };
       setStudentConnected(data.connected);
+    } else if (msg.type === "degradation_warning") {
+      const data = msg.data as {
+        role: string;
+        warning_type: DegradationWarningType;
+        active: boolean;
+      };
+      const key = degradationKey(data.role, data.warning_type);
+      setDegradationWarnings((prev) => ({ ...prev, [key]: data.active }));
     }
     // heartbeat and other messages are ignored
   }, []);
@@ -100,5 +123,6 @@ export function useServerMetrics(ws: WebSocket | null): ServerMetricsState {
     trends,
     engagementScore,
     historyLength: historyRef.current.length,
+    degradationWarnings,
   };
 }

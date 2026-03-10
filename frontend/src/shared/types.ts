@@ -64,13 +64,26 @@ export interface SessionEndedMessage {
   };
 }
 
+/** Warning type for degradation events (face detection failure, audio unavailable). */
+export type DegradationWarningType = "face_not_detected" | "audio_unavailable";
+
+export interface DegradationWarningMessage {
+  type: "degradation_warning";
+  data: {
+    role: "tutor" | "student";
+    warning_type: DegradationWarningType;
+    active: boolean;
+  };
+}
+
 export type ServerMessage =
   | ServerMetricsMessage
   | AttentionDriftMessage
   | StudentStatusMessage
   | NudgeMessage
   | HeartbeatMessage
-  | SessionEndedMessage;
+  | SessionEndedMessage
+  | DegradationWarningMessage;
 
 /** Trend direction for a metric over the last 2 minutes. */
 export type TrendDirection = "improving" | "declining" | "stable";
