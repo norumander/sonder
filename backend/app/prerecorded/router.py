@@ -160,16 +160,26 @@ async def upload_videos(
             detail=f"processing_speed must be one of {sorted(VALID_SPEEDS)}",
         )
 
-    # Validate file types
+    # Validate file types and size (500MB max per file)
+    max_size = 500 * 1024 * 1024
     for upload, label in [(tutor_video, "tutor_video"), (student_video, "student_video")]:
-        if upload.filename:
-            ext = Path(upload.filename).suffix.lower()
-            if ext not in ALLOWED_EXTENSIONS:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"{label} must be a video file "
-                    f"({', '.join(sorted(ALLOWED_EXTENSIONS))})",
-                )
+        if not upload.filename:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{label} filename is required",
+            )
+        ext = Path(upload.filename).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{label} must be a video file "
+                f"({', '.join(sorted(ALLOWED_EXTENSIONS))})",
+            )
+        if upload.size is not None and upload.size > max_size:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{label} exceeds maximum size of 500MB",
+            )
 
     # Create session
     session_id = uuid.uuid4()
@@ -195,10 +205,15 @@ async def upload_videos(
     tutor_path = upload_dir / f"tutor_{session_id}{tutor_ext}"
     student_path = upload_dir / f"student_{session_id}{student_ext}"
 
-    with open(tutor_path, "wb") as f:
-        shutil.copyfileobj(tutor_video.file, f)
-    with open(student_path, "wb") as f:
-        shutil.copyfileobj(student_video.file, f)
+    import asyncio
+
+    def _save_files():
+        with open(tutor_path, "wb") as f:
+            shutil.copyfileobj(tutor_video.file, f)
+        with open(student_path, "wb") as f:
+            shutil.copyfileobj(student_video.file, f)
+
+    await asyncio.to_thread(_save_files)
 
     # Launch background processing
     background_tasks.add_task(

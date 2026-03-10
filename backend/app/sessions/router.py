@@ -158,6 +158,7 @@ async def list_sessions(
     db: AsyncSession = Depends(get_db),
 ):
     """List tutor's sessions, most recent first."""
+    limit = min(limit, 100)
     # Get total count
     count_result = await db.execute(
         select(func.count()).select_from(Session).where(Session.tutor_id == tutor.id)

@@ -56,7 +56,9 @@ class AuthResponse(BaseModel):
 @router.post("/auth/google", response_model=AuthResponse)
 async def google_login(body: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     """Authenticate with Google OAuth. Creates tutor on first login."""
-    user_info = verify_google_token(body.token)
+    import asyncio
+
+    user_info = await asyncio.to_thread(verify_google_token, body.token)
     if user_info is None:
         raise HTTPException(
             status_code=401,

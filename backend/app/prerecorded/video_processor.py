@@ -43,6 +43,7 @@ class VideoProcessor:
         self._talk_time = TalkTimeTracker()
         self._interruptions = InterruptionDetector()
         self._face_mesh = None  # Lazy init to avoid import cost in tests
+        self._prev_landmarks: dict[str, list] = {}
 
     async def process(
         self,
@@ -64,6 +65,23 @@ class VideoProcessor:
         Returns:
             Dict with session_id and list of metric snapshots.
         """
+        import asyncio
+
+        return await asyncio.to_thread(
+            self._process_sync,
+            tutor_video_path, student_video_path, session_id,
+            timestamp_offset_ms, processing_speed,
+        )
+
+    def _process_sync(
+        self,
+        tutor_video_path: str,
+        student_video_path: str,
+        session_id: str,
+        timestamp_offset_ms: int = 0,
+        processing_speed: int = 1,
+    ) -> dict[str, Any]:
+        """Synchronous video processing (runs in a thread)."""
         sample_interval_ms = 1000 * processing_speed
 
         # Extract audio from both videos
@@ -259,9 +277,6 @@ class VideoProcessor:
             eye_contact = compute_eye_contact(landmarks)
 
             # Compute facial energy from frame-to-frame displacement
-            if not hasattr(self, "_prev_landmarks"):
-                self._prev_landmarks: dict[str, list] = {}
-
             facial_energy = compute_facial_energy(
                 list(landmarks),
                 self._prev_landmarks.get("current"),
