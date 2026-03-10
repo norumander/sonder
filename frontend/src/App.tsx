@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AnalyticsListPage, AnalyticsDetailPage } from "./analytics/AnalyticsPage";
+import { TrendsPage } from "./analytics/TrendsPage";
 
 /**
  * Root application component with client-side routing.
@@ -19,6 +20,7 @@ function App() {
         <Routes>
           <Route path="/analytics" element={<AnalyticsListPage token={token} />} />
           <Route path="/analytics/:sessionId" element={<AnalyticsDetailPage token={token} />} />
+          <Route path="/trends" element={<TrendsPage token={token} />} />
           <Route path="*" element={<Navigate to="/analytics" replace />} />
         </Routes>
       </div>

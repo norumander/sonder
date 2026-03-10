@@ -71,3 +71,23 @@ export interface SessionNudge {
   message: string;
   priority: "high" | "medium" | "low";
 }
+
+/** A single data point in the cross-session trends response. */
+export interface TrendDataPoint {
+  session_id: string;
+  start_time: string | null;
+  end_time: string | null;
+  tutor_eye_contact: number | null;
+  student_eye_contact: number | null;
+  tutor_energy: number | null;
+  student_energy: number | null;
+  tutor_talk_pct: number | null;
+  student_talk_pct: number | null;
+  total_interruptions: number;
+  engagement_score: number;
+}
+
+/** Response from GET /tutor/trends. */
+export interface TrendsResponse {
+  sessions: TrendDataPoint[];
+}
