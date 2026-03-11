@@ -86,24 +86,24 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
 
   if (step === "consent") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center p-4">
         <div
-          className="w-full max-w-md p-8"
+          className="w-full max-w-md p-8 glass-panel rounded-2xl"
           data-testid="student-consent"
         >
-          <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">
+          <h1 className="text-2xl font-bold text-white mb-2 text-center text-glow">
             Before You Join
           </h1>
-          <p className="text-sm text-gray-500 mb-6 text-center">
+          <p className="text-sm text-slate-400 mb-6 text-center">
             This session uses engagement analytics. Please review:
           </p>
 
-          <div className="space-y-3 text-sm text-gray-700">
-            <div className="rounded-lg bg-blue-50 p-4 space-y-2">
-              <h3 className="font-semibold text-blue-900">
+          <div className="space-y-4 text-sm text-slate-300">
+            <div className="rounded-xl bg-brand-teal/10 border border-brand-teal/20 p-4 space-y-2">
+              <h3 className="font-semibold text-brand-teal">
                 What is analyzed during the session
               </h3>
-              <ul className="list-disc pl-5 space-y-1 text-blue-800">
+              <ul className="list-disc pl-5 space-y-1 text-slate-300">
                 <li>Eye contact (are you looking at the screen?)</li>
                 <li>Facial energy (expression intensity)</li>
                 <li>Voice activity (speaking vs. silence)</li>
@@ -111,13 +111,13 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
               </ul>
             </div>
 
-            <div className="rounded-lg bg-green-50 p-4 space-y-2">
-              <h3 className="font-semibold text-green-900">
+            <div className="rounded-xl bg-brand-purple/10 border border-brand-purple/20 p-4 space-y-2">
+              <h3 className="font-semibold text-brand-purple">
                 Your privacy is protected
               </h3>
-              <ul className="list-disc pl-5 space-y-1 text-green-800">
+              <ul className="list-disc pl-5 space-y-1 text-slate-300">
                 <li>
-                  <strong>No video or audio is recorded</strong> &mdash; all
+                  <strong className="text-white">No video or audio is recorded</strong> &mdash; all
                   analysis runs locally in your browser
                 </li>
                 <li>
@@ -132,22 +132,22 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
               </ul>
             </div>
 
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-slate-500 text-center">
               Analytics results are visible only to your tutor and are used
               to improve the tutoring experience.
             </p>
           </div>
 
-          <div className="mt-5 border-t pt-4">
-            <label className="flex items-start gap-3 cursor-pointer">
+          <div className="mt-6 border-t border-slate-700/50 pt-5">
+            <label className="flex items-start gap-3 cursor-pointer group">
               <input
                 type="checkbox"
                 checked={consentChecked}
                 onChange={(e) => setConsentChecked(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-800 text-brand-teal focus:ring-brand-teal/50"
                 data-testid="student-consent-checkbox"
               />
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
                 I understand that this session analyzes engagement metrics and
                 consent to participate.
               </span>
@@ -155,18 +155,18 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
           </div>
 
           {error && (
-            <p className="mt-3 text-sm text-red-600" role="alert">
+            <p className="mt-3 text-sm text-red-500" role="alert">
               {error}
             </p>
           )}
 
-          <div className="mt-4 flex gap-3">
+          <div className="mt-6 flex gap-3">
             <button
               onClick={() => {
                 setStep("form");
                 setConsentChecked(false);
               }}
-              className="flex-1 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex-1 rounded-xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
               disabled={submitting}
             >
               Back
@@ -174,7 +174,7 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
             <button
               onClick={handleJoin}
               disabled={!consentChecked || submitting}
-              className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="flex-1 rounded-xl bg-gradient-to-r from-brand-teal to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-teal/20 hover:shadow-brand-teal/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="student-consent-join"
             >
               {submitting ? "Joining..." : "I Agree & Join"}
@@ -186,17 +186,17 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center p-4">
+      <div className="w-full max-w-sm p-8 glass-panel rounded-2xl">
+        <h1 className="text-3xl font-bold text-white mb-6 text-center text-glow">
           Join Session
         </h1>
 
-        <form onSubmit={handleFormSubmit} className="space-y-4">
+        <form onSubmit={handleFormSubmit} className="space-y-5">
           <div>
             <label
               htmlFor="join-code"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-slate-300 mb-1"
             >
               Session Code
             </label>
@@ -207,7 +207,7 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               maxLength={6}
               placeholder="e.g. ABC123"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-white placeholder-slate-500 focus:border-brand-teal focus:outline-none focus:ring-1 focus:ring-brand-teal transition-colors"
               disabled={submitting}
             />
           </div>
@@ -215,7 +215,7 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
           <div>
             <label
               htmlFor="display-name"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-slate-300 mb-1"
             >
               Display Name
             </label>
@@ -226,13 +226,13 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
               onChange={(e) => setDisplayName(e.target.value)}
               maxLength={50}
               placeholder="Your name"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-white placeholder-slate-500 focus:border-brand-teal focus:outline-none focus:ring-1 focus:ring-brand-teal transition-colors"
               disabled={submitting}
             />
           </div>
 
           {error && (
-            <p className="text-sm text-red-600" role="alert">
+            <p className="text-sm text-red-500" role="alert">
               {error}
             </p>
           )}
@@ -240,7 +240,7 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+            className="mt-2 w-full rounded-xl bg-gradient-to-r from-brand-teal to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-teal/20 hover:shadow-brand-teal/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Continue
           </button>

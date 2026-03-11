@@ -16,15 +16,15 @@ interface MetricCardProps {
 }
 
 const STATUS_COLORS: Record<MetricStatus, string> = {
-  green: "bg-green-50 border-green-200 text-green-800",
-  yellow: "bg-yellow-50 border-yellow-200 text-yellow-800",
-  red: "bg-red-50 border-red-200 text-red-800",
+  green: "bg-brand-teal/5 border-brand-teal/30 text-brand-teal shadow-[inset_0_0_10px_rgba(45,212,191,0.05)]",
+  yellow: "bg-yellow-500/5 border-yellow-500/30 text-yellow-400 shadow-[inset_0_0_10px_rgba(250,204,21,0.05)]",
+  red: "bg-brand-red/5 border-brand-red/30 text-brand-red shadow-[inset_0_0_10px_rgba(244,63,94,0.05)]",
 };
 
 const STATUS_VALUE_COLORS: Record<MetricStatus, string> = {
-  green: "text-green-700",
-  yellow: "text-yellow-700",
-  red: "text-red-700",
+  green: "text-white",
+  yellow: "text-white",
+  red: "text-white",
 };
 
 const TREND_ICONS: Record<TrendDirection, string> = {
@@ -34,15 +34,15 @@ const TREND_ICONS: Record<TrendDirection, string> = {
 };
 
 const TREND_COLORS: Record<TrendDirection, string> = {
-  improving: "text-green-600",
-  declining: "text-red-600",
-  stable: "text-gray-400",
+  improving: "text-brand-teal",
+  declining: "text-brand-red",
+  stable: "text-slate-500",
 };
 
 export function MetricCard({ label, value, status, trend }: MetricCardProps) {
   return (
     <div
-      className={`rounded-lg border p-3 ${STATUS_COLORS[status]}`}
+      className={`rounded-xl border p-4 backdrop-blur-sm transition-all hover:scale-[1.02] ${STATUS_COLORS[status]}`}
       data-testid={`metric-card-${label.toLowerCase().replace(/\s+/g, "-")}`}
       data-status={status}
     >

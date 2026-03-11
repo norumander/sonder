@@ -18,10 +18,10 @@ export function SessionEndedScreen({ reason, sessionId, onViewAnalytics }: Sessi
   const message = reason ? REASON_MESSAGES[reason] ?? "The session has ended." : "The session has ended.";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="text-center max-w-md p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Session Ended</h1>
-        <p className="text-gray-600 mb-6">{message}</p>
+    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center p-4">
+      <div className="text-center max-w-sm w-full p-8 glass-panel rounded-2xl shadow-2xl">
+        <h1 className="text-2xl font-bold text-white mb-4 text-glow">Session Ended</h1>
+        <p className="text-slate-400 mb-8">{message}</p>
         {(sessionId || onViewAnalytics) && (
           <a
             href={sessionId ? `/analytics/${sessionId}` : "#"}
@@ -31,7 +31,7 @@ export function SessionEndedScreen({ reason, sessionId, onViewAnalytics }: Sessi
                 onViewAnalytics();
               }
             }}
-            className="inline-block rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="inline-block w-full rounded-xl bg-gradient-to-r from-brand-teal to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-teal/20 hover:shadow-brand-teal/40 transition-all hover:scale-[1.02]"
             data-testid="view-analytics"
           >
             View Session Analytics

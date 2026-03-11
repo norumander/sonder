@@ -37,9 +37,9 @@ function formatDuration(start: string | null, end: string | null): string {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  completed: "bg-gray-100 text-gray-700",
-  active: "bg-green-100 text-green-700",
-  waiting: "bg-yellow-100 text-yellow-700",
+  completed: "bg-slate-800 text-slate-300 border border-slate-700",
+  active: "bg-emerald-900/50 text-emerald-400 border border-emerald-500/30",
+  waiting: "bg-amber-900/50 text-amber-400 border border-amber-500/30",
 };
 
 export function SessionList({
@@ -78,30 +78,30 @@ export function SessionList({
   }
 
   return (
-    <div data-testid="session-list">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b text-xs uppercase tracking-wider text-gray-500">
-            <th className="px-4 py-3">Date</th>
-            <th className="px-4 py-3">Student</th>
-            <th className="px-4 py-3">Subject</th>
-            <th className="px-4 py-3">Duration</th>
-            <th className="px-4 py-3">Status</th>
+    <div className="glass-panel overflow-hidden" data-testid="session-list">
+      <table className="w-full text-left text-sm text-slate-300">
+        <thead className="bg-slate-900/80 backdrop-blur-md">
+          <tr className="border-b border-slate-700/50 text-xs uppercase tracking-wider text-slate-400">
+            <th className="px-6 py-4 font-semibold">Date</th>
+            <th className="px-6 py-4 font-semibold">Student</th>
+            <th className="px-6 py-4 font-semibold">Subject</th>
+            <th className="px-6 py-4 font-semibold">Duration</th>
+            <th className="px-6 py-4 font-semibold">Status</th>
           </tr>
         </thead>
         <tbody>
           {sessions.map((s) => (
             <tr
               key={s.id}
-              className="cursor-pointer border-b hover:bg-gray-50"
+              className="cursor-pointer border-b border-slate-700/30 hover:bg-slate-800/50 transition-colors"
               onClick={() => onSelectSession(s.id)}
               data-testid={`session-row-${s.id}`}
             >
-              <td className="px-4 py-3 font-medium">{formatDate(s.start_time)}</td>
-              <td className="px-4 py-3">{s.student_display_name ?? "--"}</td>
-              <td className="px-4 py-3">{s.subject ?? "--"}</td>
-              <td className="px-4 py-3">{formatDuration(s.start_time, s.end_time)}</td>
-              <td className="px-4 py-3">
+              <td className="px-6 py-4 font-medium text-white">{formatDate(s.start_time)}</td>
+              <td className="px-6 py-4">{s.student_display_name ?? "--"}</td>
+              <td className="px-6 py-4">{s.subject ?? "--"}</td>
+              <td className="px-6 py-4">{formatDuration(s.start_time, s.end_time)}</td>
+              <td className="px-6 py-4">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] ?? ""}`}>
                   {s.status}
                 </span>
@@ -113,24 +113,24 @@ export function SessionList({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t px-4 py-3" data-testid="pagination">
-          <span className="text-sm text-gray-500">
+        <div className="flex items-center justify-between border-t border-slate-700/50 bg-slate-900/30 px-6 py-4" data-testid="pagination">
+          <span className="text-sm text-slate-400">
             {total} session{total !== 1 ? "s" : ""} total
           </span>
           <div className="flex gap-2">
             <button
-              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+              className="rounded-md border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               disabled={page === 0}
               onClick={() => onPageChange(page - 1)}
               data-testid="prev-page"
             >
               Previous
             </button>
-            <span className="px-2 py-1 text-sm text-gray-600">
+            <span className="px-3 py-2 text-sm text-slate-400 font-medium">
               Page {page + 1} of {totalPages}
             </span>
             <button
-              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+              className="rounded-md border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               disabled={page >= totalPages - 1}
               onClick={() => onPageChange(page + 1)}
               data-testid="next-page"

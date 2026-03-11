@@ -19,7 +19,7 @@ export function AnalyticsListPage({ token }: AnalyticsPageProps) {
 
   return (
     <div className="mx-auto max-w-4xl p-6" data-testid="analytics-list-page">
-      <h2 className="mb-6 text-xl font-bold text-gray-800">Session History</h2>
+      <h2 className="mb-6 text-2xl font-bold text-white">Session History</h2>
       <SessionList
         sessions={sessions}
         total={total}

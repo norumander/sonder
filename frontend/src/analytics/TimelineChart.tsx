@@ -67,19 +67,23 @@ export function TimelineChart({ snapshots }: TimelineChartProps) {
   return (
     <div className="space-y-6" data-testid="timeline-chart">
       {/* Eye Contact */}
-      <div>
-        <h4 className="mb-2 text-sm font-semibold text-gray-600">Eye Contact</h4>
+      <div className="glass-panel p-5 rounded-xl border-slate-700/50 shadow-lg shadow-black/20">
+        <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-300">Eye Contact</h4>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" tick={{ fontSize: 11 }} />
-            <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <Legend />
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+            <XAxis dataKey="time" tick={{ fill: "#94a3b8", fontSize: 11 }} stroke="#475569" />
+            <YAxis domain={[0, 1]} tick={{ fill: "#94a3b8", fontSize: 11 }} stroke="#475569" />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", color: "#f8fafc", borderRadius: "0.5rem" }}
+              itemStyle={{ color: "#e2e8f0" }}
+            />
+            <Legend wrapperStyle={{ paddingTop: "10px" }} />
             <Line
               type="monotone"
               dataKey="tutor_eye_contact"
-              stroke="#3b82f6"
+              stroke="#3b82f6" // blue
+              strokeWidth={3}
               name="Tutor"
               dot={false}
               connectNulls
@@ -87,7 +91,8 @@ export function TimelineChart({ snapshots }: TimelineChartProps) {
             <Line
               type="monotone"
               dataKey="student_eye_contact"
-              stroke="#f97316"
+              stroke="#2dd4bf" // brand-teal
+              strokeWidth={3}
               name="Student"
               dot={false}
               connectNulls
@@ -97,19 +102,23 @@ export function TimelineChart({ snapshots }: TimelineChartProps) {
       </div>
 
       {/* Energy */}
-      <div>
-        <h4 className="mb-2 text-sm font-semibold text-gray-600">Energy</h4>
+      <div className="glass-panel p-5 rounded-xl border-slate-700/50 shadow-lg shadow-black/20">
+        <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-300">Energy</h4>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" tick={{ fontSize: 11 }} />
-            <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <Legend />
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+            <XAxis dataKey="time" tick={{ fill: "#94a3b8", fontSize: 11 }} stroke="#475569" />
+            <YAxis domain={[0, 1]} tick={{ fill: "#94a3b8", fontSize: 11 }} stroke="#475569" />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", color: "#f8fafc", borderRadius: "0.5rem" }}
+              itemStyle={{ color: "#e2e8f0" }}
+            />
+            <Legend wrapperStyle={{ paddingTop: "10px" }} />
             <Line
               type="monotone"
               dataKey="tutor_energy"
               stroke="#3b82f6"
+              strokeWidth={3}
               name="Tutor"
               dot={false}
               connectNulls
@@ -117,7 +126,8 @@ export function TimelineChart({ snapshots }: TimelineChartProps) {
             <Line
               type="monotone"
               dataKey="student_energy"
-              stroke="#f97316"
+              stroke="#2dd4bf"
+              strokeWidth={3}
               name="Student"
               dot={false}
               connectNulls
@@ -127,26 +137,31 @@ export function TimelineChart({ snapshots }: TimelineChartProps) {
       </div>
 
       {/* Talk Time */}
-      <div>
-        <h4 className="mb-2 text-sm font-semibold text-gray-600">Talk Time %</h4>
+      <div className="glass-panel p-5 rounded-xl border-slate-700/50 shadow-lg shadow-black/20">
+        <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-300">Talk Time %</h4>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" tick={{ fontSize: 11 }} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <Legend />
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+            <XAxis dataKey="time" tick={{ fill: "#94a3b8", fontSize: 11 }} stroke="#475569" />
+            <YAxis domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 11 }} stroke="#475569" />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", color: "#f8fafc", borderRadius: "0.5rem" }}
+              itemStyle={{ color: "#e2e8f0" }}
+            />
+            <Legend wrapperStyle={{ paddingTop: "10px" }} />
             <Line
               type="monotone"
               dataKey="tutor_talk_pct"
               stroke="#3b82f6"
+              strokeWidth={3}
               name="Tutor"
               dot={false}
             />
             <Line
               type="monotone"
               dataKey="student_talk_pct"
-              stroke="#f97316"
+              stroke="#2dd4bf"
+              strokeWidth={3}
               name="Student"
               dot={false}
             />

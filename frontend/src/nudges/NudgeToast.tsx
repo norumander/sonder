@@ -5,9 +5,9 @@
 import type { NudgeData } from "../shared/types";
 
 const PRIORITY_STYLES: Record<NudgeData["priority"], string> = {
-  high: "border-red-400 bg-red-50",
-  medium: "border-yellow-400 bg-yellow-50",
-  low: "border-blue-400 bg-blue-50",
+  high: "border-red-500/50 bg-red-950/40 text-red-100",
+  medium: "border-yellow-500/50 bg-yellow-950/40 text-yellow-100",
+  low: "border-brand-teal/50 bg-brand-teal/10 text-brand-teal",
 };
 
 /** Format session-relative milliseconds as hh:mm:ss. */
@@ -29,28 +29,28 @@ export function NudgeToast({ nudge, timestampMs, onDismiss }: NudgeToastProps) {
   return (
     <div
       data-testid="nudge-toast"
-      className={`flex items-start gap-3 rounded-lg border-l-4 px-4 py-3 shadow-md ${PRIORITY_STYLES[nudge.priority]}`}
+      className={`glass-panel flex items-start gap-3 rounded-xl border-l-4 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-md ${PRIORITY_STYLES[nudge.priority]}`}
     >
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <p className="text-xs font-bold uppercase tracking-wider opacity-80">
             Coaching Nudge
           </p>
           {timestampMs != null && (
             <span
-              className="text-[10px] font-mono text-gray-400"
+              className="text-[10px] font-mono opacity-60"
               data-testid="nudge-timestamp"
             >
               {formatSessionTime(timestampMs)}
             </span>
           )}
         </div>
-        <p className="mt-1 text-sm font-medium text-gray-800">{nudge.message}</p>
+        <p className="mt-1 text-sm font-medium opacity-90">{nudge.message}</p>
       </div>
       <button
         onClick={onDismiss}
         aria-label="Dismiss nudge"
-        className="text-gray-400 hover:text-gray-600"
+        className="opacity-50 hover:opacity-100 transition-opacity"
       >
         &times;
       </button>

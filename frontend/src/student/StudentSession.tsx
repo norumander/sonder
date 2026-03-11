@@ -61,18 +61,18 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
 
   if (status === "error") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md p-8">
-          <p className="text-red-600">{error}</p>
+      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center">
+        <div className="text-center max-w-md p-8 glass-panel rounded-2xl border-red-500/30">
+          <p className="text-red-400 font-medium">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4">
+    <div className="flex min-h-[calc(100vh-64px)] flex-col items-center justify-center p-4">
       {/* Webcam preview */}
-      <div className="relative w-full max-w-lg rounded-lg overflow-hidden bg-black mb-6">
+      <div className="relative w-full max-w-lg rounded-2xl overflow-hidden bg-black mb-6 shadow-2xl shadow-brand-teal/10 border border-slate-800">
         <video
           ref={videoRefCallback}
           autoPlay
@@ -84,13 +84,13 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
 
       {/* Session status indicator */}
       {tutorConnected ? (
-        <div className="flex items-center gap-2 mb-6">
-          <span className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-white text-sm font-medium">Session Active</span>
+        <div className="flex items-center gap-3 mb-8 glass-panel rounded-full px-6 py-3">
+          <span className="h-3 w-3 rounded-full bg-brand-teal shadow-[0_0_10px_rgba(45,212,191,0.5)] animate-pulse" />
+          <span className="text-white text-sm font-semibold tracking-wide">Session Active</span>
         </div>
       ) : (
-        <div className="flex items-center gap-2 mb-6 rounded-lg bg-gray-800 px-5 py-3">
-          <span className="h-3 w-3 rounded-full bg-yellow-400 animate-pulse" />
+        <div className="flex items-center gap-3 mb-8 glass-panel rounded-full px-6 py-3 border-yellow-500/30 bg-yellow-500/10">
+          <span className="h-3 w-3 rounded-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)] animate-pulse" />
           <span className="text-yellow-200 text-sm font-medium">
             Waiting for tutor to join the session…
           </span>
@@ -100,7 +100,7 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
       {/* Leave session button — disconnects without ending the session */}
       <button
         onClick={onLeave}
-        className="rounded-md bg-red-600 px-6 py-2 text-sm font-medium text-white hover:bg-red-700"
+        className="rounded-xl bg-slate-800/80 border border-slate-700 px-8 py-3 text-sm font-semibold text-white hover:bg-brand-red hover:border-brand-red hover:shadow-lg hover:shadow-brand-red/20 transition-all"
       >
         Leave Session
       </button>

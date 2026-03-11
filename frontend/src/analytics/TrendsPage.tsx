@@ -14,16 +14,16 @@ export function TrendsPage({ token }: TrendsPageProps) {
 
   return (
     <div className="mx-auto max-w-4xl p-6" data-testid="trends-page">
-      <h2 className="mb-6 text-xl font-bold text-gray-800">Session Trends</h2>
+      <h2 className="mb-8 text-3xl font-bold text-white text-glow">Session Trends</h2>
 
       {loading && (
-        <div className="flex justify-center p-12 text-gray-400" data-testid="trends-loading">
+        <div className="flex justify-center p-12 text-slate-400" data-testid="trends-loading">
           Loading trends...
         </div>
       )}
 
       {error && (
-        <div className="p-8 text-center text-red-600" data-testid="trends-error">
+        <div className="p-8 text-center text-red-500 glass-panel rounded-xl mt-4" data-testid="trends-error">
           {error}
         </div>
       )}

@@ -25,12 +25,12 @@ export function CreateSessionPage() {
 
     return (
       <div className="mx-auto max-w-lg p-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Session Created</h2>
-        <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+        <h2 className="text-2xl font-bold text-white mb-6">Session Created</h2>
+        <div className="glass-panel p-6 space-y-6">
           <div>
-            <p className="text-sm text-gray-500 mb-1">Join Code</p>
+            <p className="text-sm text-slate-400 mb-1">Join Code</p>
             <p
-              className="text-3xl font-mono font-bold tracking-widest text-blue-600"
+              className="text-4xl font-mono font-bold tracking-widest text-brand-teal text-glow"
               data-testid="join-code"
             >
               {session.join_code}
@@ -38,14 +38,14 @@ export function CreateSessionPage() {
           </div>
 
           <div>
-            <p className="text-sm text-gray-500 mb-1">Share Link</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 rounded bg-gray-100 px-3 py-2 text-sm text-gray-700 break-all">
+            <p className="text-sm text-slate-400 mb-2">Share Link</p>
+            <div className="flex items-center gap-3">
+              <code className="flex-1 rounded-lg bg-slate-900/80 border border-slate-700 px-4 py-3 text-sm text-slate-300 break-all font-mono">
                 {joinLink}
               </code>
               <button
                 onClick={() => navigator.clipboard.writeText(joinLink)}
-                className="rounded bg-gray-200 px-3 py-2 text-sm hover:bg-gray-300"
+                className="rounded-lg bg-brand-purple/20 border border-brand-purple/50 px-4 py-3 text-sm font-medium text-brand-purple hover:bg-brand-purple hover:text-white transition-colors"
                 type="button"
               >
                 Copy
@@ -53,13 +53,13 @@ export function CreateSessionPage() {
             </div>
           </div>
 
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-400 text-center animate-pulse">
             Waiting for student to join...
           </p>
 
           <button
             onClick={() => navigate(`/session/${session.session_id}`)}
-            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="w-full rounded-xl bg-gradient-to-r from-brand-teal to-brand-purple px-4 py-3 text-base font-semibold text-white shadow-lg shadow-brand-purple/20 hover:shadow-brand-purple/40 hover:opacity-90 transition-all"
           >
             Start Session
           </button>
@@ -69,14 +69,14 @@ export function CreateSessionPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg p-8">
-      <h2 className="text-xl font-bold text-gray-900 mb-6">New Session</h2>
+    <div className="mx-auto w-full max-w-lg p-8 mt-10">
+      <h2 className="text-2xl font-bold text-white mb-6">New Session</h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="glass-panel p-8 space-y-6">
         <div>
           <label
             htmlFor="subject"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-slate-300 mb-2"
           >
             Subject (optional)
           </label>
@@ -86,13 +86,13 @@ export function CreateSessionPage() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="e.g. Algebra, SAT Prep"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-lg bg-slate-900/80 border border-slate-700 px-4 py-3 text-white placeholder-slate-500 focus:border-brand-teal focus:outline-none focus:ring-1 focus:ring-brand-teal transition-colors"
             disabled={creating}
           />
         </div>
 
         {error && (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-red-400 bg-red-900/30 p-3 rounded border border-red-500/20" role="alert">
             {error}
           </p>
         )}
@@ -100,7 +100,7 @@ export function CreateSessionPage() {
         <button
           type="submit"
           disabled={creating}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+          className="w-full rounded-xl bg-slate-800 border border-slate-600 px-4 py-3 text-base font-medium text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {creating ? "Creating..." : "Create Session"}
         </button>

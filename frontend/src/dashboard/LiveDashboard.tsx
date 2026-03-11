@@ -75,12 +75,12 @@ function DegradationBanner({
   if (banners.length === 0) return null;
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2 mb-3">
       {banners.map((b) => (
         <div
           key={b.testId}
           data-testid={b.testId}
-          className="rounded bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 border border-amber-200"
+          className="rounded-lg bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-200 border border-yellow-500/20 backdrop-blur-sm shadow-sm"
         >
           {b.message}
         </div>
@@ -109,20 +109,20 @@ function ParticipantSection({
   warnings: DegradationWarnings;
 }) {
   return (
-    <div className="flex-1" data-testid={`section-${label.toLowerCase()}`}>
-      <div className="mb-3 flex items-center gap-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-600">
+    <div className="flex-1 glass-panel p-4 rounded-xl shadow-lg shadow-black/20 border-slate-700/50" data-testid={`section-${label.toLowerCase()}`}>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">
           {label}
         </h3>
         {connected !== undefined && (
           <span
-            className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-green-500" : "bg-gray-300"}`}
+            className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${connected ? "bg-brand-teal shadow-brand-teal/50" : "bg-slate-600"}`}
             title={connected ? "Connected" : "Disconnected"}
           />
         )}
       </div>
       <DegradationBanner role={role} warnings={warnings} connected={connected} />
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <MetricCard
           label="Eye Contact"
           value={formatMetricValue("eye_contact", participant.eye_contact)}
@@ -153,19 +153,19 @@ function ParticipantSection({
 
 function EngagementBadge({ score }: { score: number }) {
   const color =
-    score >= 70 ? "text-green-700 bg-green-50 border-green-200"
-    : score >= 40 ? "text-yellow-700 bg-yellow-50 border-yellow-200"
-    : "text-red-700 bg-red-50 border-red-200";
+    score >= 70 ? "text-brand-teal border-brand-teal/30 bg-brand-teal/5 shadow-[inset_0_0_20px_rgba(45,212,191,0.1)]"
+    : score >= 40 ? "text-yellow-400 border-yellow-500/30 bg-yellow-500/5 shadow-[inset_0_0_20px_rgba(250,204,21,0.1)]"
+    : "text-brand-red border-brand-red/30 bg-brand-red/5 shadow-[inset_0_0_20px_rgba(244,63,94,0.1)]";
 
   return (
     <div
-      className={`flex flex-col items-center rounded-xl border-2 px-6 py-3 ${color}`}
+      className={`flex flex-col items-center justify-center rounded-2xl border px-8 py-4 backdrop-blur-md ${color} transition-all`}
       data-testid="engagement-score"
     >
-      <span className="text-xs font-medium uppercase tracking-wider opacity-75">
+      <span className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">
         Engagement
       </span>
-      <span className="text-3xl font-bold">{score}</span>
+      <span className="text-4xl font-black drop-shadow-md">{score}</span>
     </div>
   );
 }

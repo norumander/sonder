@@ -112,11 +112,11 @@ export function UploadForm({ token, onUploadComplete }: UploadFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-8 glass-panel p-8 rounded-2xl max-w-xl mx-auto">
       <div>
         <label
           htmlFor="tutor-video"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-semibold text-slate-300 mb-2 uppercase tracking-wider"
         >
           Tutor Video
         </label>
@@ -125,14 +125,14 @@ export function UploadForm({ token, onUploadComplete }: UploadFormProps) {
           type="file"
           accept=".mp4,.webm"
           onChange={(e) => setTutorFile(e.target.files?.[0] ?? null)}
-          className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:rounded file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+          className="block w-full text-sm text-slate-400 file:mr-4 file:rounded-xl file:border-0 file:bg-brand-purple/20 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-brand-purple border border-slate-700/50 rounded-xl bg-slate-900/50 hover:file:bg-brand-purple/30 transition-all cursor-pointer focus:outline-none"
         />
       </div>
 
       <div>
         <label
           htmlFor="student-video"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-semibold text-slate-300 mb-2 uppercase tracking-wider"
         >
           Student Video
         </label>
@@ -141,64 +141,66 @@ export function UploadForm({ token, onUploadComplete }: UploadFormProps) {
           type="file"
           accept=".mp4,.webm"
           onChange={(e) => setStudentFile(e.target.files?.[0] ?? null)}
-          className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:rounded file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+          className="block w-full text-sm text-slate-400 file:mr-4 file:rounded-xl file:border-0 file:bg-brand-teal/20 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-brand-teal border border-slate-700/50 rounded-xl bg-slate-900/50 hover:file:bg-brand-teal/30 transition-all cursor-pointer focus:outline-none"
         />
       </div>
 
-      <div>
-        <label
-          htmlFor="timestamp-offset"
-          className="block text-sm font-medium text-gray-700"
-        >
-          Timestamp Offset (ms)
-        </label>
-        <input
-          id="timestamp-offset"
-          type="number"
-          value={offsetMs}
-          onChange={(e) => setOffsetMs(e.target.value)}
-          min="0"
-          className="mt-1 block w-48 rounded border border-gray-300 px-3 py-2 text-sm"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Offset to align student video with tutor video
-        </p>
-      </div>
+      <div className="grid grid-cols-2 gap-6">
+        <div>
+          <label
+            htmlFor="timestamp-offset"
+            className="block text-sm font-semibold text-slate-300 mb-2 uppercase tracking-wider"
+          >
+            Timestamp Offset (ms)
+          </label>
+          <input
+            id="timestamp-offset"
+            type="number"
+            value={offsetMs}
+            onChange={(e) => setOffsetMs(e.target.value)}
+            min="0"
+            className="block w-full rounded-xl border border-slate-700 bg-slate-900/50 px-4 py-2.5 text-sm text-white focus:border-brand-purple focus:outline-none focus:ring-1 focus:ring-brand-purple transition-all"
+          />
+          <p className="mt-2 text-xs text-slate-500 font-medium">
+            Offset to align student video with tutor video
+          </p>
+        </div>
 
-      <div>
-        <label
-          htmlFor="processing-speed"
-          className="block text-sm font-medium text-gray-700"
-        >
-          Processing Speed
-        </label>
-        <select
-          id="processing-speed"
-          value={speed}
-          onChange={(e) => setSpeed(e.target.value)}
-          className="mt-1 block w-48 rounded border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="1">1x (highest accuracy)</option>
-          <option value="2">2x (balanced)</option>
-          <option value="4">4x (fastest)</option>
-        </select>
+        <div>
+          <label
+            htmlFor="processing-speed"
+            className="block text-sm font-semibold text-slate-300 mb-2 uppercase tracking-wider"
+          >
+            Processing Speed
+          </label>
+          <select
+            id="processing-speed"
+            value={speed}
+            onChange={(e) => setSpeed(e.target.value)}
+            className="block w-full rounded-xl border border-slate-700 bg-slate-900/50 px-4 py-2.5 text-sm text-white focus:border-brand-teal focus:outline-none focus:ring-1 focus:ring-brand-teal transition-all"
+          >
+            <option value="1">1x (highest accuracy)</option>
+            <option value="2">2x (balanced)</option>
+            <option value="4">4x (fastest)</option>
+          </select>
+        </div>
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl font-medium">
           {error}
         </p>
       )}
 
       {processing && (
-        <div className="space-y-2 rounded bg-blue-50 px-4 py-3">
-          <div className="flex items-center justify-between text-sm text-blue-700">
+        <div className="space-y-3 rounded-xl bg-brand-purple/10 border border-brand-purple/20 px-5 py-4">
+          <div className="flex items-center justify-between text-sm text-brand-purple font-semibold">
             <span>{statusMessage}</span>
-            <span className="font-medium">{progress}%</span>
+            <span>{progress}%</span>
           </div>
-          <div className="h-2.5 w-full rounded-full bg-blue-200">
+          <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
             <div
-              className="h-2.5 rounded-full bg-blue-600 transition-all duration-300"
+              className="h-full rounded-full bg-gradient-to-r from-brand-purple to-brand-teal transition-all duration-300 shadow-[0_0_10px_rgba(45,212,191,0.5)]"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -208,7 +210,7 @@ export function UploadForm({ token, onUploadComplete }: UploadFormProps) {
       <button
         type="submit"
         disabled={uploading || processing}
-        className="rounded bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+        className="w-full rounded-xl bg-gradient-to-r from-brand-purple to-brand-teal px-6 py-4 text-sm font-semibold text-white shadow-lg shadow-brand-purple/20 hover:shadow-brand-purple/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-[0.98]"
       >
         {uploading
           ? "Uploading..."

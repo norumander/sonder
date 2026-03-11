@@ -79,32 +79,35 @@ export function NudgeSettings({ preferences, onSave, saving }: NudgeSettingsProp
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h2 className="text-xl font-semibold mb-6">Nudge Settings</h2>
+    <div className="max-w-2xl mx-auto p-8 glass-panel rounded-2xl">
+      <h2 className="text-2xl font-bold mb-8 text-white text-glow">Nudge Settings</h2>
 
-      <section className="mb-8">
-        <h3 className="text-lg font-medium mb-4">Enabled Nudge Types</h3>
-        <div className="space-y-3">
+      <section className="mb-10">
+        <h3 className="text-lg font-bold mb-6 text-brand-teal uppercase tracking-wider">Enabled Nudge Types</h3>
+        <div className="space-y-4">
           {NUDGE_TYPES.map(({ type, label }) => (
-            <label key={type} className="flex items-center gap-3 cursor-pointer">
+            <label key={type} className="flex items-center gap-4 cursor-pointer group">
               <input
                 type="checkbox"
                 checked={enabledNudges.has(type)}
                 onChange={() => handleToggle(type)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="h-5 w-5 rounded border-slate-600 bg-slate-800 text-brand-teal focus:ring-brand-teal/50 transition-colors"
+                data-testid={`setting-${type}`}
               />
-              <span className="text-sm text-gray-700">{label}</span>
+              <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{label}</span>
             </label>
           ))}
         </div>
       </section>
 
-      <section className="mb-8">
-        <h3 className="text-lg font-medium mb-4">Thresholds</h3>
-        <div className="space-y-4">
+      <div className="h-px bg-slate-700/50 w-full mb-10" />
+
+      <section className="mb-10">
+        <h3 className="text-lg font-bold mb-6 text-brand-purple uppercase tracking-wider">Thresholds</h3>
+        <div className="space-y-6">
           {THRESHOLD_FIELDS.map(({ key, label, step, min, max }) => (
-            <div key={key} className="flex items-center gap-4">
-              <label htmlFor={key} className="text-sm text-gray-700 w-60">
+            <div key={key} className="flex items-center gap-6">
+              <label htmlFor={key} className="text-sm font-medium text-slate-300 w-64">
                 {label}
               </label>
               <input
@@ -115,7 +118,8 @@ export function NudgeSettings({ preferences, onSave, saving }: NudgeSettingsProp
                 step={step}
                 min={min}
                 max={max}
-                className="w-24 rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-28 rounded-xl border border-slate-600 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-colors"
+                data-testid={`threshold-${key}`}
               />
             </div>
           ))}
@@ -125,7 +129,8 @@ export function NudgeSettings({ preferences, onSave, saving }: NudgeSettingsProp
       <button
         onClick={handleSave}
         disabled={saving}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-brand-purple to-brand-teal text-white font-semibold rounded-xl shadow-lg shadow-brand-purple/20 hover:shadow-brand-purple/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-[0.98]"
+        data-testid="save-settings"
       >
         {saving ? "Saving..." : "Save Settings"}
       </button>

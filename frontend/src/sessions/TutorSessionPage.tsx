@@ -75,10 +75,10 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
 
   if (status === "error") {
     return (
-      <div className="flex items-center justify-center p-12">
-        <div className="text-center max-w-md">
-          <p className="text-red-600 mb-4">{error}</p>
-          <p className="text-gray-500 text-sm">
+      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center p-4">
+        <div className="text-center max-w-md p-8 glass-panel rounded-2xl border-red-500/30">
+          <p className="text-red-400 mb-4 font-medium">{error}</p>
+          <p className="text-slate-400 text-sm">
             Camera access is required for the tutor session.
           </p>
         </div>
@@ -87,10 +87,10 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
   }
 
   return (
-    <div className="flex h-[calc(100vh-57px)]" data-testid="tutor-session">
+    <div className="flex h-[calc(100vh-64px)]" data-testid="tutor-session">
       {/* Left column: webcam + controls */}
-      <div className="flex w-80 flex-col border-r bg-gray-900 p-4">
-        <div className="rounded-lg overflow-hidden bg-black mb-4">
+      <div className="flex w-80 flex-col border-r border-slate-800 bg-slate-950/50 backdrop-blur pb-6 pt-4 px-4 z-10 shrink-0">
+        <div className="rounded-xl overflow-hidden bg-black mb-4 shadow-xl shadow-brand-purple/10 border border-slate-800">
           <video
             ref={videoRefCallback}
             autoPlay
@@ -100,15 +100,15 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
           />
         </div>
 
-        <div className="flex items-center gap-2 mb-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-white text-xs font-medium">Live</span>
+        <div className="flex items-center gap-3 mb-4 bg-slate-900 rounded-lg px-3 py-2 border border-slate-800">
+          <span className="h-2.5 w-2.5 rounded-full bg-brand-teal shadow-[0_0_8px_rgba(45,212,191,0.6)] animate-pulse" />
+          <span className="text-white text-xs font-semibold tracking-wide">Live</span>
           <button
             onClick={() => setShowGazeDebug((v) => !v)}
-            className={`ml-auto rounded px-2 py-0.5 text-[10px] font-medium ${
+            className={`ml-auto rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
               showGazeDebug
-                ? "bg-blue-600 text-white"
-                : "bg-gray-700 text-gray-400 hover:text-gray-200"
+                ? "bg-brand-purple text-white shadow-lg shadow-brand-purple/20"
+                : "bg-slate-800 text-slate-400 hover:text-slate-200"
             }`}
             data-testid="gaze-debug-toggle"
           >
@@ -122,10 +122,10 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
           visible={showGazeDebug}
         />
 
-        <div className="mt-auto">
+        <div className="mt-auto pt-4">
           <button
             onClick={endSession}
-            className="w-full rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            className="w-full rounded-xl bg-slate-800/80 border border-slate-700 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-red hover:border-brand-red hover:shadow-lg hover:shadow-brand-red/20 transition-all"
           >
             End Session
           </button>
@@ -133,7 +133,7 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
       </div>
 
       {/* Right column: live dashboard */}
-      <div className="flex-1 overflow-y-auto bg-gray-50">
+      <div className="flex-1 overflow-y-auto bg-transparent relative z-0">
         <LiveDashboard state={serverMetricsState} />
       </div>
 
