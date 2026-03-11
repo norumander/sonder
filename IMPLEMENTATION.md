@@ -717,3 +717,16 @@ _None yet._
 - **Next**: Rebuild Docker (`docker compose up --build -d`) and re-test: (1) verify eye contact score drops when looking away or covering face, (2) verify attention changes to "Yes" after ~5s of not looking at camera, (3) verify talk time responds to recent silence (not stuck at old cumulative average), (4) commit all changes. Also consider whether response latency needs additional work for same-room testing scenarios.
 - **Blockers**: None
 - **Open Questions**: Response latency may need a different approach for same-room test setups where both mics pick up identical audio. Works correctly when participants are in separate rooms.
+
+### Checkpoint — 2026-03-11 16:20
+- **Phase**: Eye tracking improvement sprint (user-requested)
+- **Completed**: 5 of 6 planned improvements committed in `4ac3dbf`:
+  1. **Processing frequency**: 500ms setInterval → ~150ms rAF-based loop with throttle (~7 FPS). Files: `useFaceMesh.ts`
+  2. **Temporal smoothing**: Added `EyeContactSmoother` class (exponential moving average, alpha=0.3). Resets on face loss. 6 new tests. Files: `eyeContact.ts`, `useFaceMesh.ts`
+  3. **Blendshape preference**: Already implemented (skipped — useFaceMesh already prefers blendshapes, falls back to landmarks)
+  4. **Pitch tracking**: Added forehead/chin landmarks + pitch deviation detection to `computeHeadPoseScore`. Now detects looking up/down, not just left/right. 3 new tests. Files: `eyeContact.ts`
+  5. **Calibration**: Created `GazeCalibrator` class (collect samples → compute offset → correct gaze), `CalibrationOverlay` component (3s countdown, skip option), wired into both `TutorSessionPage` and `StudentSession`. 9 new tests. Files: `gazeCalibration.ts`, `gazeCalibration.test.ts`, `CalibrationOverlay.tsx`, `TutorSessionPage.tsx`, `StudentSession.tsx`, `useFaceMesh.ts`
+- **State**: 51 metrics tests pass (32 eyeContact + 9 calibration + 6 facialEnergy + 4 useFaceMesh). 3 pre-existing failures in NudgeToast tests (unrelated). Commit `4ac3dbf`.
+- **Next**: Implement improvement #6 — Video quality check at session start. Should warn user about poor lighting, backlighting, or camera obstructions before session begins. Needs a `VideoQualityCheck` component that analyzes the first few frames and shows warnings. Add to both TutorSessionPage and StudentSession (can show alongside or before CalibrationOverlay).
+- **Blockers**: None
+- **Open Questions**: None
