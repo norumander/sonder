@@ -355,10 +355,13 @@ async def get_session_snapshots(
     )
     snapshots = snap_result.scalars().all()
 
+    # Convert absolute epoch timestamps to session-relative
+    start_epoch_ms = int(session.start_time.timestamp() * 1000)
+
     return {
         "snapshots": [
             {
-                "timestamp_ms": s.timestamp_ms,
+                "timestamp_ms": max(0, s.timestamp_ms - start_epoch_ms),
                 "metrics": s.metrics,
             }
             for s in snapshots
@@ -392,10 +395,13 @@ async def get_session_nudges(
     )
     nudges = nudge_result.scalars().all()
 
+    # Convert absolute epoch timestamps to session-relative
+    start_epoch_ms = int(session.start_time.timestamp() * 1000)
+
     return {
         "nudges": [
             {
-                "timestamp_ms": n.timestamp_ms,
+                "timestamp_ms": max(0, n.timestamp_ms - start_epoch_ms),
                 "nudge_type": n.nudge_type.value,
                 "message": n.message,
                 "priority": n.priority.value,

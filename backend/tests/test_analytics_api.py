@@ -80,6 +80,9 @@ async def client(test_app):
 @pytest.fixture
 async def session_with_data(db_session, tutor):
     """Create a completed session with snapshots and nudges."""
+    start = datetime(2026, 3, 9, 10, 0, tzinfo=UTC)
+    start_epoch_ms = int(start.timestamp() * 1000)
+
     session = Session(
         id=uuid.uuid4(),
         tutor_id=tutor.id,
@@ -87,17 +90,17 @@ async def session_with_data(db_session, tutor):
         status=SessionStatus.COMPLETED,
         session_type=SessionType.LIVE,
         student_display_name="Test Student",
-        start_time=datetime(2026, 3, 9, 10, 0, tzinfo=UTC),
+        start_time=start,
         end_time=datetime(2026, 3, 9, 10, 30, tzinfo=UTC),
     )
     db_session.add(session)
 
-    # Add 3 snapshots
+    # Add 3 snapshots (absolute epoch timestamps, as stored in production)
     for i in range(3):
         snap = MetricSnapshot(
             id=uuid.uuid4(),
             session_id=session.id,
-            timestamp_ms=1000 * i,
+            timestamp_ms=start_epoch_ms + 1000 * i,
             metrics={
                 "tutor_eye_contact": 0.8 - i * 0.1,
                 "student_eye_contact": 0.6,
@@ -113,11 +116,11 @@ async def session_with_data(db_session, tutor):
         )
         db_session.add(snap)
 
-    # Add 2 nudges
+    # Add 2 nudges (absolute epoch timestamps)
     nudge1 = Nudge(
         id=uuid.uuid4(),
         session_id=session.id,
-        timestamp_ms=500,
+        timestamp_ms=start_epoch_ms + 500,
         nudge_type=NudgeType.STUDENT_SILENT,
         message="Your student has been quiet. Try asking an open-ended question.",
         priority=NudgePriority.MEDIUM,
@@ -126,7 +129,7 @@ async def session_with_data(db_session, tutor):
     nudge2 = Nudge(
         id=uuid.uuid4(),
         session_id=session.id,
-        timestamp_ms=1500,
+        timestamp_ms=start_epoch_ms + 1500,
         nudge_type=NudgeType.TUTOR_DOMINANT,
         message="You've been talking a lot. Pause and let your student respond.",
         priority=NudgePriority.HIGH,

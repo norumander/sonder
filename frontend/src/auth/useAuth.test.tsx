@@ -5,12 +5,13 @@ import { AuthProvider, useAuth } from "./useAuth";
 
 // Test component that exposes auth state
 function AuthConsumer() {
-  const { token, tutor, loading, login, logout } = useAuth();
+  const { token, tutor, loading, login, logout, acceptPrivacy } = useAuth();
   const [loginError, setLoginError] = useState<string | null>(null);
   return (
     <div>
       <span data-testid="token">{token ?? "null"}</span>
       <span data-testid="tutor">{tutor ? tutor.name : "null"}</span>
+      <span data-testid="privacy">{tutor ? String(tutor.privacy_accepted) : "null"}</span>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="login-error">{loginError ?? "null"}</span>
       <button
@@ -18,6 +19,7 @@ function AuthConsumer() {
         onClick={() => login("google-cred").catch((e) => setLoginError(e.message))}
       />
       <button data-testid="logout" onClick={logout} />
+      <button data-testid="accept-privacy" onClick={() => acceptPrivacy().catch(() => {})} />
     </div>
   );
 }
@@ -46,7 +48,7 @@ describe("useAuth", () => {
     localStorage.setItem("sonder_token", "saved-jwt");
     localStorage.setItem(
       "sonder_tutor",
-      JSON.stringify({ id: "1", name: "Alice", email: "a@b.com" }),
+      JSON.stringify({ id: "1", name: "Alice", email: "a@b.com", privacy_accepted: true }),
     );
 
     renderAuth();
@@ -57,7 +59,7 @@ describe("useAuth", () => {
   it("login calls backend and stores credentials on success", async () => {
     const mockResponse = {
       access_token: "new-jwt",
-      tutor: { id: "2", name: "Bob", email: "b@b.com" },
+      tutor: { id: "2", name: "Bob", email: "b@b.com", privacy_accepted: false },
     };
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
@@ -94,11 +96,34 @@ describe("useAuth", () => {
     expect(localStorage.getItem("sonder_token")).toBeNull();
   });
 
+  it("acceptPrivacy updates tutor state and localStorage", async () => {
+    localStorage.setItem("sonder_token", "jwt");
+    localStorage.setItem(
+      "sonder_tutor",
+      JSON.stringify({ id: "1", name: "Test", email: "t@t.com", privacy_accepted: false }),
+    );
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ ok: true }),
+    } as Response);
+
+    renderAuth();
+    expect(screen.getByTestId("privacy").textContent).toBe("false");
+
+    await act(async () => {
+      screen.getByTestId("accept-privacy").click();
+    });
+
+    expect(screen.getByTestId("privacy").textContent).toBe("true");
+    expect(JSON.parse(localStorage.getItem("sonder_tutor")!).privacy_accepted).toBe(true);
+  });
+
   it("logout clears token, tutor, and localStorage", async () => {
     localStorage.setItem("sonder_token", "jwt");
     localStorage.setItem(
       "sonder_tutor",
-      JSON.stringify({ id: "1", name: "Test", email: "t@t.com" }),
+      JSON.stringify({ id: "1", name: "Test", email: "t@t.com", privacy_accepted: true }),
     );
 
     renderAuth();

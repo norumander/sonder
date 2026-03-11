@@ -19,6 +19,7 @@ export interface Tutor {
   id: string;
   name: string;
   email: string;
+  privacy_accepted: boolean;
 }
 
 interface AuthState {
@@ -27,6 +28,7 @@ interface AuthState {
   loading: boolean;
   login: (googleCredential: string) => Promise<void>;
   logout: () => void;
+  acceptPrivacy: () => Promise<void>;
 }
 
 const TOKEN_KEY = "sonder_token";
@@ -84,8 +86,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTutor(null);
   }, []);
 
+  const acceptPrivacy = useCallback(async () => {
+    if (!token) return;
+    const response = await fetch(`${API_BASE}/auth/accept-privacy`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      throw new Error("Failed to accept privacy policy");
+    }
+    setTutor((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, privacy_accepted: true };
+      localStorage.setItem(TUTOR_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, [token]);
+
   return (
-    <AuthContext.Provider value={{ token, tutor, loading, login, logout }}>
+    <AuthContext.Provider value={{ token, tutor, loading, login, logout, acceptPrivacy }}>
       {children}
     </AuthContext.Provider>
   );

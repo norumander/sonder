@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.models import MetricSnapshot, Nudge, NudgeType, SessionSummary
+from app.models.models import MetricSnapshot, Nudge, NudgeType, Session, SessionSummary
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +193,13 @@ async def generate_summary(
     Returns:
         The created SessionSummary record.
     """
+    # Fetch session to get start_time for relative timestamp conversion
+    session_result = await db.execute(
+        select(Session).where(Session.id == session_id)
+    )
+    session = session_result.scalar_one_or_none()
+    start_epoch_ms = int(session.start_time.timestamp() * 1000) if session else 0
+
     # Fetch all metric snapshots ordered by timestamp
     result = await db.execute(
         select(MetricSnapshot)
@@ -292,7 +299,7 @@ async def generate_summary(
             "type": n.nudge_type.value if hasattr(n.nudge_type, "value") else str(n.nudge_type),
             "message": n.message,
             "priority": n.priority.value if hasattr(n.priority, "value") else str(n.priority),
-            "timestamp_ms": n.timestamp_ms,
+            "timestamp_ms": max(0, n.timestamp_ms - start_epoch_ms),
         })
 
     # Drift events from snapshots (where drift transitions to True)
@@ -310,7 +317,7 @@ async def generate_summary(
                 "source": "drift",
                 "role": "tutor",
                 "reason": reason or "attention_drift",
-                "timestamp_ms": s.timestamp_ms,
+                "timestamp_ms": max(0, s.timestamp_ms - start_epoch_ms),
             })
         if student_drift and not prev_student_drift:
             drift_count += 1
@@ -318,7 +325,7 @@ async def generate_summary(
                 "source": "drift",
                 "role": "student",
                 "reason": reason or "attention_drift",
-                "timestamp_ms": s.timestamp_ms,
+                "timestamp_ms": max(0, s.timestamp_ms - start_epoch_ms),
             })
         prev_tutor_drift = tutor_drift
         prev_student_drift = student_drift

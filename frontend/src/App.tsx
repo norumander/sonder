@@ -14,6 +14,7 @@ import {
   useParams,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/useAuth";
+import { PrivacyConsentModal } from "./auth/PrivacyConsentModal";
 import { API_BASE } from "./shared/config";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
@@ -63,7 +64,7 @@ function App() {
 // --- Layout ---
 
 function NavLayout() {
-  const { tutor, logout } = useAuth();
+  const { tutor, logout, acceptPrivacy } = useAuth();
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `text-sm font-medium ${isActive ? "text-blue-600" : "text-gray-600 hover:text-gray-900"}`;
@@ -105,6 +106,9 @@ function NavLayout() {
           </button>
         </div>
       </nav>
+      {tutor && !tutor.privacy_accepted && (
+        <PrivacyConsentModal onAccept={acceptPrivacy} />
+      )}
       <Outlet />
     </div>
   );

@@ -1,6 +1,7 @@
 """Auth API routes."""
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -42,6 +43,7 @@ class TutorResponse(BaseModel):
     id: str
     name: str
     email: str
+    privacy_accepted: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -87,7 +89,12 @@ async def google_login(body: GoogleAuthRequest, db: AsyncSession = Depends(get_d
     access_token = create_access_token(tutor_id=str(tutor.id))
     return AuthResponse(
         access_token=access_token,
-        tutor=TutorResponse(id=str(tutor.id), name=tutor.name, email=tutor.email),
+        tutor=TutorResponse(
+            id=str(tutor.id),
+            name=tutor.name,
+            email=tutor.email,
+            privacy_accepted=bool(tutor.preferences.get("privacy_accepted_at")),
+        ),
     )
 
 
@@ -100,4 +107,18 @@ async def get_me(tutor: Tutor = Depends(get_current_tutor)):
         "email": tutor.email,
         "avatar_url": tutor.avatar_url,
         "preferences": tutor.preferences,
+        "privacy_accepted": bool(tutor.preferences.get("privacy_accepted_at")),
     }
+
+
+@router.post("/auth/accept-privacy")
+async def accept_privacy(
+    tutor: Tutor = Depends(get_current_tutor),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record that the tutor has accepted the privacy policy."""
+    prefs = dict(tutor.preferences)
+    prefs["privacy_accepted_at"] = datetime.now(UTC).isoformat()
+    tutor.preferences = prefs
+    await db.commit()
+    return {"ok": True}

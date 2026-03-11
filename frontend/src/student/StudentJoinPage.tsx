@@ -9,8 +9,9 @@ interface StudentJoinPageProps {
 }
 
 /**
- * Join page for students. Prompts for a 6-character session code and display name.
- * Calls POST /sessions/join and invokes onJoin on success.
+ * Join page for students. Two steps:
+ * 1. Enter session code and display name.
+ * 2. Review privacy disclosure and accept before joining.
  */
 export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
   const [joinCode, setJoinCode] = useState(initialCode ?? "");
@@ -18,7 +19,11 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Two-step flow: "form" → "consent"
+  const [step, setStep] = useState<"form" | "consent">("form");
+  const [consentChecked, setConsentChecked] = useState(false);
+
+  function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -40,15 +45,21 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
       return;
     }
 
+    // Proceed to consent step
+    setStep("consent");
+  }
+
+  async function handleJoin() {
     setSubmitting(true);
+    setError(null);
 
     try {
       const response = await fetch(`${API_BASE}/sessions/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          join_code: trimmedCode,
-          display_name: trimmedName,
+          join_code: joinCode.trim(),
+          display_name: displayName.trim(),
         }),
       });
 
@@ -60,6 +71,7 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
           setError(`Failed to join session (${response.status}).`);
         }
         setSubmitting(false);
+        setStep("form");
         return;
       }
 
@@ -68,7 +80,109 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
     } catch {
       setError("Network error. Please try again.");
       setSubmitting(false);
+      setStep("form");
     }
+  }
+
+  if (step === "consent") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div
+          className="w-full max-w-md p-8"
+          data-testid="student-consent"
+        >
+          <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">
+            Before You Join
+          </h1>
+          <p className="text-sm text-gray-500 mb-6 text-center">
+            This session uses engagement analytics. Please review:
+          </p>
+
+          <div className="space-y-3 text-sm text-gray-700">
+            <div className="rounded-lg bg-blue-50 p-4 space-y-2">
+              <h3 className="font-semibold text-blue-900">
+                What is analyzed during the session
+              </h3>
+              <ul className="list-disc pl-5 space-y-1 text-blue-800">
+                <li>Eye contact (are you looking at the screen?)</li>
+                <li>Facial energy (expression intensity)</li>
+                <li>Voice activity (speaking vs. silence)</li>
+                <li>Talk time balance between you and your tutor</li>
+              </ul>
+            </div>
+
+            <div className="rounded-lg bg-green-50 p-4 space-y-2">
+              <h3 className="font-semibold text-green-900">
+                Your privacy is protected
+              </h3>
+              <ul className="list-disc pl-5 space-y-1 text-green-800">
+                <li>
+                  <strong>No video or audio is recorded</strong> &mdash; all
+                  analysis runs locally in your browser
+                </li>
+                <li>
+                  Only numerical scores are sent to the server (e.g., &ldquo;eye
+                  contact: 0.8&rdquo;)
+                </li>
+                <li>
+                  Your identity is anonymous &mdash; only your chosen display
+                  name is stored
+                </li>
+                <li>You can leave the session at any time</li>
+              </ul>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              Analytics results are visible only to your tutor and are used
+              to improve the tutoring experience.
+            </p>
+          </div>
+
+          <div className="mt-5 border-t pt-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => setConsentChecked(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                data-testid="student-consent-checkbox"
+              />
+              <span className="text-sm text-gray-700">
+                I understand that this session analyzes engagement metrics and
+                consent to participate.
+              </span>
+            </label>
+          </div>
+
+          {error && (
+            <p className="mt-3 text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
+
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={() => {
+                setStep("form");
+                setConsentChecked(false);
+              }}
+              className="flex-1 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={submitting}
+            >
+              Back
+            </button>
+            <button
+              onClick={handleJoin}
+              disabled={!consentChecked || submitting}
+              className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              data-testid="student-consent-join"
+            >
+              {submitting ? "Joining..." : "I Agree & Join"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -78,7 +192,7 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
           Join Session
         </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleFormSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="join-code"
@@ -128,7 +242,7 @@ export function StudentJoinPage({ onJoin, initialCode }: StudentJoinPageProps) {
             disabled={submitting}
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
           >
-            {submitting ? "Joining..." : "Join Session"}
+            Continue
           </button>
         </form>
       </div>

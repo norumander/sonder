@@ -48,22 +48,26 @@ async def sample_session(db_session: AsyncSession):
     )
     db_session.add(tutor)
 
+    start = datetime(2026, 3, 9, 10, 0, tzinfo=UTC)
+    start_epoch_ms = int(start.timestamp() * 1000)
+
     session = Session(
         id=uuid.uuid4(),
         tutor_id=tutor.id,
         join_code="ABC123",
         status=SessionStatus.COMPLETED,
         session_type=SessionType.LIVE,
-        start_time=datetime(2026, 3, 9, 10, 0, tzinfo=UTC),
+        start_time=start,
         join_time=datetime(2026, 3, 9, 10, 1, tzinfo=UTC),
         end_time=datetime(2026, 3, 9, 10, 30, tzinfo=UTC),
     )
     db_session.add(session)
 
     # Add metric snapshots simulating a 30-minute session
+    # Use absolute epoch timestamps (as stored in production)
     snapshots = [
         {
-            "timestamp_ms": 1000 * i,
+            "timestamp_ms": start_epoch_ms + 1000 * i,
             "metrics": {
                 "tutor_eye_contact": 0.8,
                 "student_eye_contact": 0.6,
@@ -88,11 +92,11 @@ async def sample_session(db_session: AsyncSession):
         )
         db_session.add(snap)
 
-    # Add a nudge
+    # Add a nudge (absolute epoch timestamp)
     nudge = Nudge(
         id=uuid.uuid4(),
         session_id=session.id,
-        timestamp_ms=3000,
+        timestamp_ms=start_epoch_ms + 3000,
         nudge_type=NudgeType.TUTOR_DOMINANT,
         message="You've been talking for a while. Try asking a question.",
         priority=NudgePriority.MEDIUM,
@@ -116,13 +120,16 @@ async def session_with_varied_metrics(db_session: AsyncSession):
     )
     db_session.add(tutor)
 
+    start = datetime(2026, 3, 9, 10, 0, tzinfo=UTC)
+    start_epoch_ms = int(start.timestamp() * 1000)
+
     session = Session(
         id=uuid.uuid4(),
         tutor_id=tutor.id,
         join_code="VAR123",
         status=SessionStatus.COMPLETED,
         session_type=SessionType.LIVE,
-        start_time=datetime(2026, 3, 9, 10, 0, tzinfo=UTC),
+        start_time=start,
         end_time=datetime(2026, 3, 9, 10, 30, tzinfo=UTC),
     )
     db_session.add(session)
@@ -150,16 +157,16 @@ async def session_with_varied_metrics(db_session: AsyncSession):
         snap = MetricSnapshot(
             id=uuid.uuid4(),
             session_id=session.id,
-            timestamp_ms=1000 * i,
+            timestamp_ms=start_epoch_ms + 1000 * i,
             metrics=m,
         )
         db_session.add(snap)
 
-    # Add drift nudge
+    # Add drift nudge (absolute epoch timestamp)
     nudge = Nudge(
         id=uuid.uuid4(),
         session_id=session.id,
-        timestamp_ms=2000,
+        timestamp_ms=start_epoch_ms + 2000,
         nudge_type=NudgeType.STUDENT_LOW_EYE_CONTACT,
         message="Student may be distracted.",
         priority=NudgePriority.HIGH,
