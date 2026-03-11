@@ -205,9 +205,9 @@ describe("formatMetricValue", () => {
     expect(formatMetricValue("interruptions", 5)).toBe("5");
   });
 
-  it("formats attention drift as Yes/No", () => {
-    expect(formatMetricValue("attention_drift", true)).toBe("Yes");
-    expect(formatMetricValue("attention_drift", false)).toBe("No");
+  it("formats attention as Yes (attentive) / No (drifting)", () => {
+    expect(formatMetricValue("attention_drift", true)).toBe("No");
+    expect(formatMetricValue("attention_drift", false)).toBe("Yes");
   });
 
   it("returns -- for null values", () => {

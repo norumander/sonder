@@ -33,7 +33,7 @@ describe("useNudgeQueue", () => {
       result.current.enqueue(makeNudge());
     });
     expect(result.current.activeNudge).not.toBeNull();
-    expect(result.current.activeNudge!.message).toBe("Check for understanding");
+    expect(result.current.activeNudge!.nudge.message).toBe("Check for understanding");
   });
 
   it("auto-dismisses active nudge after 8 seconds", () => {
@@ -57,7 +57,7 @@ describe("useNudgeQueue", () => {
     act(() => {
       result.current.enqueue(makeNudge({ message: "Second" }));
     });
-    expect(result.current.activeNudge!.message).toBe("First");
+    expect(result.current.activeNudge!.nudge.message).toBe("First");
     expect(result.current.queueLength).toBe(1);
   });
 
@@ -74,7 +74,7 @@ describe("useNudgeQueue", () => {
     act(() => {
       vi.advanceTimersByTime(8000);
     });
-    expect(result.current.activeNudge!.message).toBe("Second");
+    expect(result.current.activeNudge!.nudge.message).toBe("Second");
   });
 
   it("allows manual dismissal via dismiss()", () => {
@@ -102,7 +102,7 @@ describe("useNudgeQueue", () => {
     act(() => {
       result.current.dismiss();
     });
-    expect(result.current.activeNudge!.message).toBe("Second");
+    expect(result.current.activeNudge!.nudge.message).toBe("Second");
   });
 
   it("clears auto-dismiss timer on manual dismiss", () => {
@@ -121,7 +121,7 @@ describe("useNudgeQueue", () => {
     act(() => {
       result.current.dismiss();
     });
-    expect(result.current.activeNudge!.message).toBe("Second");
+    expect(result.current.activeNudge!.nudge.message).toBe("Second");
 
     // Second should auto-dismiss 8s after it appeared, not 5s
     act(() => {
@@ -147,15 +147,15 @@ describe("useNudgeQueue", () => {
       result.current.enqueue(makeNudge({ message: "C" }));
     });
 
-    expect(result.current.activeNudge!.message).toBe("A");
+    expect(result.current.activeNudge!.nudge.message).toBe("A");
     expect(result.current.queueLength).toBe(2);
 
     act(() => vi.advanceTimersByTime(8000));
-    expect(result.current.activeNudge!.message).toBe("B");
+    expect(result.current.activeNudge!.nudge.message).toBe("B");
     expect(result.current.queueLength).toBe(1);
 
     act(() => vi.advanceTimersByTime(8000));
-    expect(result.current.activeNudge!.message).toBe("C");
+    expect(result.current.activeNudge!.nudge.message).toBe("C");
     expect(result.current.queueLength).toBe(0);
 
     act(() => vi.advanceTimersByTime(8000));

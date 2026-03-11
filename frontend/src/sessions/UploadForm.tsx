@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE } from "../shared/config";
 
 interface UploadFormProps {
@@ -19,6 +19,54 @@ export function UploadForm({ token, onUploadComplete }: UploadFormProps) {
   const [speed, setSpeed] = useState("1");
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState("");
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
+
+  const pollForCompletion = useCallback(
+    (sessionId: string) => {
+      setProcessing(true);
+      setProgress(0);
+      setStatusMessage("Starting...");
+
+      pollingRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(
+            `${API_BASE}/sessions/${sessionId}/progress`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          setProgress(data.progress);
+          setStatusMessage(data.stage);
+          if (data.status === "completed") {
+            stopPolling();
+            setProcessing(false);
+            onUploadComplete(sessionId);
+          } else if (data.status === "failed") {
+            stopPolling();
+            setProcessing(false);
+            setError(data.stage || "Processing failed");
+          }
+        } catch {
+          // Keep polling on network errors
+        }
+      }, 1000);
+    },
+    [token, onUploadComplete, stopPolling],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +103,7 @@ export function UploadForm({ token, onUploadComplete }: UploadFormProps) {
       }
 
       const data = await response.json();
-      onUploadComplete(data.session_id);
+      pollForCompletion(data.session_id);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -142,12 +190,31 @@ export function UploadForm({ token, onUploadComplete }: UploadFormProps) {
         </p>
       )}
 
+      {processing && (
+        <div className="space-y-2 rounded bg-blue-50 px-4 py-3">
+          <div className="flex items-center justify-between text-sm text-blue-700">
+            <span>{statusMessage}</span>
+            <span className="font-medium">{progress}%</span>
+          </div>
+          <div className="h-2.5 w-full rounded-full bg-blue-200">
+            <div
+              className="h-2.5 rounded-full bg-blue-600 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <button
         type="submit"
-        disabled={uploading}
+        disabled={uploading || processing}
         className="rounded bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
       >
-        {uploading ? "Uploading..." : "Upload & Analyze"}
+        {uploading
+          ? "Uploading..."
+          : processing
+            ? "Processing..."
+            : "Upload & Analyze"}
       </button>
     </form>
   );

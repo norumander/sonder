@@ -6,13 +6,12 @@ from app.metrics.attention_drift import AttentionDriftDetector
 
 
 class TestEyeContactDrift:
-    """Drift flag when eye contact < 0.3 for > 15 consecutive seconds."""
+    """Drift flag when eye contact < 0.3 for > 5 consecutive seconds."""
 
-    def test_low_eye_contact_20s_triggers_drift(self):
-        """Eye contact < 0.3 for 20 seconds -> drift activates with reason."""
+    def test_low_eye_contact_10s_triggers_drift(self):
+        """Eye contact < 0.3 for 10 seconds -> drift activates with reason."""
         detector = AttentionDriftDetector()
-        # Feed 20 seconds of low eye contact at 500ms intervals
-        for t in range(0, 20_000, 500):
+        for t in range(0, 10_000, 500):
             result = detector.update(
                 session_id="test-session", role="student",
                 eye_contact=0.2,
@@ -22,10 +21,10 @@ class TestEyeContactDrift:
         assert result.drifting is True
         assert result.reason == "low_eye_contact"
 
-    def test_low_eye_contact_10s_no_drift(self):
-        """Eye contact < 0.3 for only 10 seconds -> no drift."""
+    def test_low_eye_contact_3s_no_drift(self):
+        """Eye contact < 0.3 for only 3 seconds -> no drift."""
         detector = AttentionDriftDetector()
-        for t in range(0, 10_000, 500):
+        for t in range(0, 3_000, 500):
             result = detector.update(
                 session_id="test-session", role="student",
                 eye_contact=0.2,
@@ -50,19 +49,19 @@ class TestEyeContactDrift:
         """Drift flag clears when eye contact goes back above threshold."""
         detector = AttentionDriftDetector()
         # Trigger drift
-        for t in range(0, 20_000, 500):
+        for t in range(0, 10_000, 500):
             detector.update(session_id="test-session", role="student", eye_contact=0.1, energy=0.5, timestamp_ms=t)
         # Recover
         result = detector.update(
-            session_id="test-session", role="student", eye_contact=0.8, energy=0.5, timestamp_ms=20_000
+            session_id="test-session", role="student", eye_contact=0.8, energy=0.5, timestamp_ms=10_000
         )
         assert result.drifting is False
         assert result.reason is None
 
-    def test_boundary_exactly_15s_no_drift(self):
-        """Exactly 15 seconds at low eye contact -> no drift (must be >15s)."""
+    def test_boundary_exactly_5s_no_drift(self):
+        """Exactly 5 seconds at low eye contact -> no drift (must be >5s)."""
         detector = AttentionDriftDetector()
-        for t in range(0, 15_001, 500):
+        for t in range(0, 5_001, 500):
             result = detector.update(
                 session_id="test-session", role="student",
                 eye_contact=0.2,
@@ -139,15 +138,15 @@ class TestIndependentRoles:
     def test_tutor_and_student_independent(self):
         """Tutor drifting does not affect student drift state."""
         detector = AttentionDriftDetector()
-        # Tutor has low eye contact for 20s
-        for t in range(0, 20_000, 500):
+        # Tutor has low eye contact for 10s
+        for t in range(0, 10_000, 500):
             detector.update(session_id="test-session", role="tutor", eye_contact=0.1, energy=0.5, timestamp_ms=t)
 
         tutor_result = detector.update(
-            session_id="test-session", role="tutor", eye_contact=0.1, energy=0.5, timestamp_ms=20_000
+            session_id="test-session", role="tutor", eye_contact=0.1, energy=0.5, timestamp_ms=10_000
         )
         student_result = detector.update(
-            session_id="test-session", role="student", eye_contact=0.9, energy=0.5, timestamp_ms=20_000
+            session_id="test-session", role="student", eye_contact=0.9, energy=0.5, timestamp_ms=10_000
         )
         assert tutor_result.drifting is True
         assert student_result.drifting is False
@@ -157,9 +156,14 @@ class TestNullMetrics:
     """Handle null eye contact or energy gracefully."""
 
     def test_null_eye_contact_no_drift(self):
-        """Null eye contact (face not detected) should not trigger drift."""
+        """Null eye contact (face not detected) should not trigger drift directly.
+
+        Note: The aggregator converts null -> 0.0 before passing to the drift
+        detector, so in practice face-not-detected DOES trigger drift after 5s.
+        This test verifies the detector's internal null handling.
+        """
         detector = AttentionDriftDetector()
-        for t in range(0, 20_000, 500):
+        for t in range(0, 10_000, 500):
             result = detector.update(
                 session_id="test-session", role="student", eye_contact=None, energy=0.5, timestamp_ms=t
             )

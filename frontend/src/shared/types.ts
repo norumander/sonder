@@ -14,7 +14,9 @@ export interface ServerMetrics {
   tutor_attention_drift: boolean;
   student_attention_drift: boolean;
   drift_reason: string | null;
+  response_latency_ms: number | null;
   timestamp_ms: number;
+  server_timestamp_ms: number;
 }
 
 /** WebSocket message types received by the tutor. */

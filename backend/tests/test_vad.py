@@ -6,7 +6,7 @@ import base64
 import struct
 
 from app.audio.vad import VadAnalyzer
-from app.metrics.talk_time import TalkTimeTracker
+from app.metrics.talk_time import TalkTimeTracker, WINDOW_MS
 
 # --- VadAnalyzer unit tests ---
 
@@ -70,7 +70,7 @@ class TestVadAnalyzer:
 
 
 class TestTalkTimeTracker:
-    """Unit tests for running talk time percentage computation."""
+    """Unit tests for rolling-window talk time percentage computation."""
 
     def test_initial_state_returns_none(self):
         tracker = TalkTimeTracker()
@@ -79,33 +79,30 @@ class TestTalkTimeTracker:
 
     def test_update_with_speech_increases_talk_pct(self):
         tracker = TalkTimeTracker()
-        # 10 speech frames out of 10 total
-        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10)
+        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10, timestamp_ms=1000)
         pct = tracker.get_talk_pct("session-1", "tutor")
         assert pct is not None
         assert abs(pct - 100.0) < 0.1
 
     def test_update_with_silence_gives_zero(self):
         tracker = TalkTimeTracker()
-        tracker.update("session-1", "tutor", speech_frames=0, total_frames=10)
+        tracker.update("session-1", "tutor", speech_frames=0, total_frames=10, timestamp_ms=1000)
         pct = tracker.get_talk_pct("session-1", "tutor")
         assert pct is not None
         assert abs(pct - 0.0) < 0.1
 
     def test_running_average_across_updates(self):
         tracker = TalkTimeTracker()
-        # First update: 100% speech
-        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10)
-        # Second update: 0% speech
-        tracker.update("session-1", "tutor", speech_frames=0, total_frames=10)
+        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10, timestamp_ms=1000)
+        tracker.update("session-1", "tutor", speech_frames=0, total_frames=10, timestamp_ms=2000)
         pct = tracker.get_talk_pct("session-1", "tutor")
         assert pct is not None
         assert abs(pct - 50.0) < 0.1
 
     def test_tracks_tutor_and_student_separately(self):
         tracker = TalkTimeTracker()
-        tracker.update("session-1", "tutor", speech_frames=8, total_frames=10)
-        tracker.update("session-1", "student", speech_frames=4, total_frames=10)
+        tracker.update("session-1", "tutor", speech_frames=8, total_frames=10, timestamp_ms=1000)
+        tracker.update("session-1", "student", speech_frames=4, total_frames=10, timestamp_ms=1000)
 
         tutor_pct = tracker.get_talk_pct("session-1", "tutor")
         student_pct = tracker.get_talk_pct("session-1", "student")
@@ -116,8 +113,8 @@ class TestTalkTimeTracker:
 
     def test_tracks_sessions_separately(self):
         tracker = TalkTimeTracker()
-        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10)
-        tracker.update("session-2", "tutor", speech_frames=0, total_frames=10)
+        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10, timestamp_ms=1000)
+        tracker.update("session-2", "tutor", speech_frames=0, total_frames=10, timestamp_ms=1000)
 
         assert abs(tracker.get_talk_pct("session-1", "tutor") - 100.0) < 0.1
         assert abs(tracker.get_talk_pct("session-2", "tutor") - 0.0) < 0.1
@@ -125,12 +122,12 @@ class TestTalkTimeTracker:
     def test_sixty_forty_scenario(self):
         """Tutor 60% / student 40% scenario within ±5% accuracy."""
         tracker = TalkTimeTracker()
-        # Simulate 10 updates: tutor speaks in 6, student in 4
         for i in range(10):
+            ts = 1000 + i * 1000
             tutor_speech = 100 if i < 6 else 0
             student_speech = 100 if i >= 6 else 0
-            tracker.update("session-1", "tutor", speech_frames=tutor_speech, total_frames=100)
-            tracker.update("session-1", "student", speech_frames=student_speech, total_frames=100)
+            tracker.update("session-1", "tutor", speech_frames=tutor_speech, total_frames=100, timestamp_ms=ts)
+            tracker.update("session-1", "student", speech_frames=student_speech, total_frames=100, timestamp_ms=ts)
 
         tutor_pct = tracker.get_talk_pct("session-1", "tutor")
         student_pct = tracker.get_talk_pct("session-1", "student")
@@ -139,11 +136,41 @@ class TestTalkTimeTracker:
 
     def test_missing_channel_returns_none(self):
         tracker = TalkTimeTracker()
-        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10)
+        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10, timestamp_ms=1000)
         assert tracker.get_talk_pct("session-1", "student") is None
 
     def test_clear_session(self):
         tracker = TalkTimeTracker()
-        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10)
+        tracker.update("session-1", "tutor", speech_frames=10, total_frames=10, timestamp_ms=1000)
         tracker.clear_session("session-1")
         assert tracker.get_talk_pct("session-1", "tutor") is None
+
+    def test_old_entries_pruned_from_window(self):
+        """Entries older than WINDOW_MS are dropped from the rolling window."""
+        tracker = TalkTimeTracker()
+        # 100% speech at t=0
+        tracker.update("s1", "tutor", speech_frames=100, total_frames=100, timestamp_ms=0)
+        # 0% speech at t=WINDOW_MS+1 (old entry should be pruned)
+        tracker.update("s1", "tutor", speech_frames=0, total_frames=100, timestamp_ms=WINDOW_MS + 1)
+
+        pct = tracker.get_talk_pct("s1", "tutor")
+        assert pct is not None
+        # Only the recent silent entry remains
+        assert abs(pct - 0.0) < 0.1
+
+    def test_window_reflects_recent_behavior(self):
+        """After a long session, talk time reflects only the last 2 minutes."""
+        tracker = TalkTimeTracker()
+        # 5 minutes of 100% speech (all outside window at end)
+        for i in range(300):
+            tracker.update("s1", "tutor", speech_frames=100, total_frames=100, timestamp_ms=i * 1000)
+
+        # Then 2 minutes of silence (inside window)
+        for i in range(120):
+            ts = 300_000 + i * 1000
+            tracker.update("s1", "tutor", speech_frames=0, total_frames=100, timestamp_ms=ts)
+
+        pct = tracker.get_talk_pct("s1", "tutor")
+        assert pct is not None
+        # Should reflect recent silence, not the earlier speech
+        assert pct < 5.0

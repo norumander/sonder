@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMediaCapture } from "../media/useMediaCapture";
 import { useFaceMesh } from "../metrics/useFaceMesh";
+import { GazeDebugOverlay } from "../metrics/GazeDebugOverlay";
 import { useMetricsStreaming } from "../shared/useMetricsStreaming";
 import { useAudioStreaming } from "../shared/useAudioStreaming";
 import { useServerMetrics } from "../dashboard/useServerMetrics";
@@ -38,7 +39,8 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
   }, []);
 
   const { videoStream, status, error, consumeAudioChunks } = useMediaCapture();
-  const { eyeContactScore, facialEnergy } = useFaceMesh(videoEl);
+  const { eyeContactScore, facialEnergy, gazePoint } = useFaceMesh(videoEl);
+  const [showGazeDebug, setShowGazeDebug] = useState(false);
   const { sessionEnded, endSession } = useTutorSessionControl(sessionId, token, ws);
   const serverMetricsState = useServerMetrics(ws);
 
@@ -98,10 +100,27 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
           />
         </div>
 
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-3">
           <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
           <span className="text-white text-xs font-medium">Live</span>
+          <button
+            onClick={() => setShowGazeDebug((v) => !v)}
+            className={`ml-auto rounded px-2 py-0.5 text-[10px] font-medium ${
+              showGazeDebug
+                ? "bg-blue-600 text-white"
+                : "bg-gray-700 text-gray-400 hover:text-gray-200"
+            }`}
+            data-testid="gaze-debug-toggle"
+          >
+            Gaze
+          </button>
         </div>
+
+        <GazeDebugOverlay
+          gazePoint={gazePoint}
+          eyeContactScore={eyeContactScore}
+          visible={showGazeDebug}
+        />
 
         <div className="mt-auto">
           <button

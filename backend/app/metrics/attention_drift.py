@@ -1,7 +1,7 @@
 """Attention drift detection per participant.
 
 Flags drift when:
-- Eye contact < 0.3 for > 15 consecutive seconds
+- Eye contact < 0.3 for > 5 consecutive seconds
 - Energy drops > 0.3 from rolling 2-minute average
 """
 
@@ -13,9 +13,8 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-# Thresholds per PRD
 EYE_CONTACT_THRESHOLD = 0.3
-EYE_CONTACT_DURATION_MS = 15_000  # > 15 seconds
+EYE_CONTACT_DURATION_MS = 5_000  # > 5 seconds
 ENERGY_DROP_THRESHOLD = 0.3
 ENERGY_WINDOW_MS = 120_000  # 2-minute rolling window
 
@@ -60,7 +59,7 @@ class _ParticipantState:
     def _check_eye_contact(
         self, eye_contact: float | None, timestamp_ms: int
     ) -> bool:
-        """Check if eye contact has been below threshold for > 15 seconds."""
+        """Check if eye contact has been below threshold for > 5 seconds."""
         if eye_contact is None or eye_contact >= EYE_CONTACT_THRESHOLD:
             self.low_eye_contact_start_ms = None
             return False
@@ -113,7 +112,7 @@ class AttentionDriftDetector:
     """Detects attention drift independently per session and participant.
 
     Tracks per-session, per-participant state and evaluates two drift conditions:
-    1. Eye contact below 0.3 for more than 15 consecutive seconds
+    1. Eye contact below 0.3 for more than 5 consecutive seconds
     2. Energy drop greater than 0.3 from 2-minute rolling average
     """
 

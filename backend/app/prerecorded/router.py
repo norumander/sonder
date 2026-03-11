@@ -24,6 +24,7 @@ from app.models.models import (
     Tutor,
 )
 from app.prerecorded.video_processor import VideoProcessor
+from app.summary.generator import generate_summary
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +33,24 @@ router = APIRouter(tags=["prerecorded"])
 ALLOWED_EXTENSIONS = {".mp4", ".webm", ".avi", ".mov", ".mkv"}
 VALID_SPEEDS = {1, 2, 4}
 
+# In-memory progress tracking for active video processing jobs
+_processing_progress: dict[str, dict] = {}
+
 
 class UploadResponse(BaseModel):
     """Response from uploading pre-recorded videos."""
 
     session_id: str
     session_type: str
+    status: str
+
+
+class ProgressResponse(BaseModel):
+    """Response for processing progress."""
+
+    session_id: str
+    progress: int
+    stage: str
     status: str
 
 
@@ -66,14 +79,26 @@ async def process_upload(
         timestamp_offset_ms: Offset to apply to student video.
         processing_speed: Processing speed multiplier (1, 2, or 4).
     """
+    sid = str(session_id)
+
+    def _on_progress(current: int, total: int, stage: str) -> None:
+        _processing_progress[sid] = {
+            "progress": current,
+            "stage": stage,
+            "status": "processing",
+        }
+
+    _processing_progress[sid] = {"progress": 0, "stage": "Starting...", "status": "processing"}
+
     processor = VideoProcessor()
     try:
         result = await processor.process(
             tutor_video_path=tutor_video_path,
             student_video_path=student_video_path,
-            session_id=str(session_id),
+            session_id=sid,
             timestamp_offset_ms=timestamp_offset_ms,
             processing_speed=processing_speed,
+            on_progress=_on_progress,
         )
 
         # Save snapshots to database
@@ -88,7 +113,7 @@ async def process_upload(
                 )
                 db.add(snapshot)
 
-            # Mark session as completed
+            # Mark session as completed and generate summary
             from sqlalchemy import select
 
             sess_result = await db.execute(
@@ -101,6 +126,11 @@ async def process_upload(
 
             await db.commit()
 
+            # Generate post-session summary from the snapshots
+            _processing_progress[sid] = {"progress": 98, "stage": "Generating summary...", "status": "processing"}
+            await generate_summary(session_id, db)
+
+        _processing_progress[sid] = {"progress": 100, "stage": "Complete", "status": "completed"}
         logger.info(
             "Processed pre-recorded session %s: %d snapshots",
             session_id,
@@ -108,6 +138,7 @@ async def process_upload(
         )
     except Exception:
         logger.exception("Failed to process pre-recorded session %s", session_id)
+        _processing_progress[sid] = {"progress": 0, "stage": "Processing failed", "status": "failed"}
         # Leave session as ACTIVE (not falsely completed) so the tutor
         # can see it did not finish. The lack of an end_time indicates failure.
         try:
@@ -234,4 +265,26 @@ async def upload_videos(
         session_id=str(session_id),
         session_type="pre_recorded",
         status="processing",
+    )
+
+
+@router.get("/sessions/{session_id}/progress", response_model=ProgressResponse)
+async def get_processing_progress(
+    session_id: str,
+    tutor: Tutor = Depends(get_current_tutor),
+):
+    """Get processing progress for a pre-recorded session upload."""
+    progress = _processing_progress.get(session_id)
+    if progress is None:
+        return ProgressResponse(
+            session_id=session_id,
+            progress=0,
+            stage="Unknown",
+            status="not_found",
+        )
+    return ProgressResponse(
+        session_id=session_id,
+        progress=progress["progress"],
+        stage=progress["stage"],
+        status=progress["status"],
     )

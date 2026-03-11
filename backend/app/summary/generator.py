@@ -106,6 +106,7 @@ def _compute_recommendations(
     tutor_eye_avg = tutor_metrics.get("eye_contact", {}).get("avg", 1.0)
     student_energy_avg = student_metrics.get("energy", {}).get("avg", 1.0)
     tutor_energy_avg = tutor_metrics.get("energy", {}).get("avg", 1.0)
+    response_latency = tutor_metrics.get("response_latency_ms")
 
     # Tutor dominant talk time
     if tutor_pct > 70:
@@ -152,6 +153,13 @@ def _compute_recommendations(
         recs.append(
             "Attention drift was detected multiple times. Shorter, more "
             "interactive segments may help maintain focus."
+        )
+
+    # High response latency
+    if response_latency is not None and response_latency > 5000:
+        recs.append(
+            "Average response time between speakers was high. This may "
+            "indicate confusion or hesitation — try simpler questions."
         )
 
     # Ensure at least 2 recommendations
@@ -238,6 +246,8 @@ async def generate_summary(
         "energy": _aggregate_metric(student_energy_values),
     }
 
+    # Response latency values will be added to tutor_metrics after computation below
+
     # Talk time ratio from average across snapshots (filter None values)
     tutor_talk_values = [v for s in snapshots if (v := s.metrics.get("tutor_talk_pct")) is not None]
     student_talk_values = [v for s in snapshots if (v := s.metrics.get("student_talk_pct")) is not None]
@@ -245,6 +255,18 @@ async def generate_summary(
         "tutor_pct": round(sum(tutor_talk_values) / len(tutor_talk_values), 1) if tutor_talk_values else 0.0,
         "student_pct": round(sum(student_talk_values) / len(student_talk_values), 1) if student_talk_values else 0.0,
     }
+
+    # Response latency (novel metric): average across all snapshots that have it
+    response_latency_values = [
+        v for s in snapshots
+        if (v := s.metrics.get("response_latency_ms")) is not None
+    ]
+    avg_response_latency_ms = (
+        round(sum(response_latency_values) / len(response_latency_values), 0)
+        if response_latency_values else None
+    )
+    if avg_response_latency_ms is not None:
+        tutor_metrics["response_latency_ms"] = avg_response_latency_ms
 
     # Total interruptions from the final snapshot (cumulative)
     last_snapshot = snapshots[-1]

@@ -20,6 +20,7 @@ from app.audio.prosody import ProsodyAnalyzer
 from app.audio.vad import VadAnalyzer
 from app.metrics.energy import EnergyScorer
 from app.metrics.interruptions import InterruptionDetector
+from app.metrics.response_latency import ResponseLatencyTracker
 from app.metrics.talk_time import TalkTimeTracker
 from app.prerecorded.face_analyzer import FaceMetrics, compute_eye_contact, compute_facial_energy
 
@@ -42,6 +43,7 @@ class VideoProcessor:
         self._energy = EnergyScorer()
         self._talk_time = TalkTimeTracker()
         self._interruptions = InterruptionDetector()
+        self._response_latency = ResponseLatencyTracker()
         self._face_mesh = None  # Lazy init to avoid import cost in tests
         self._prev_landmarks: dict[str, list] = {}
 
@@ -52,6 +54,7 @@ class VideoProcessor:
         session_id: str,
         timestamp_offset_ms: int = 0,
         processing_speed: int = 1,
+        on_progress: Any | None = None,
     ) -> dict[str, Any]:
         """Process two video files and produce metric snapshots.
 
@@ -61,6 +64,7 @@ class VideoProcessor:
             timestamp_offset_ms: Offset to apply to student video (ms).
             processing_speed: Processing speed multiplier (1, 2, or 4).
                 Higher values sample fewer frames for faster processing.
+            on_progress: Optional callback(current, total, stage) for progress.
 
         Returns:
             Dict with session_id and list of metric snapshots.
@@ -70,7 +74,7 @@ class VideoProcessor:
         return await asyncio.to_thread(
             self._process_sync,
             tutor_video_path, student_video_path, session_id,
-            timestamp_offset_ms, processing_speed,
+            timestamp_offset_ms, processing_speed, on_progress,
         )
 
     def _process_sync(
@@ -80,13 +84,24 @@ class VideoProcessor:
         session_id: str,
         timestamp_offset_ms: int = 0,
         processing_speed: int = 1,
+        on_progress: Any | None = None,
     ) -> dict[str, Any]:
-        """Synchronous video processing (runs in a thread)."""
+        """Synchronous video processing (runs in a thread).
+
+        Args:
+            on_progress: Optional callback(current, total, stage) for progress reporting.
+        """
         sample_interval_ms = 1000 * processing_speed
+
+        if on_progress:
+            on_progress(0, 100, "Extracting audio...")
 
         # Extract audio from both videos
         tutor_audio = self._extract_audio(tutor_video_path)
         student_audio = self._extract_audio(student_video_path)
+
+        if on_progress:
+            on_progress(5, 100, "Extracting frames...")
 
         # Extract frames at the sample interval
         tutor_frames = self._extract_frames(tutor_video_path, sample_interval_ms)
@@ -107,8 +122,16 @@ class VideoProcessor:
 
         # Process each time step
         snapshots: list[dict[str, Any]] = []
+        total_steps = len(all_timestamps)
 
-        for ts_ms in all_timestamps:
+        if on_progress:
+            on_progress(10, 100, "Analyzing frames...")
+
+        for i, ts_ms in enumerate(all_timestamps):
+            if on_progress and total_steps > 0:
+                # Map frame processing to 10-95% range
+                pct = 10 + int(85 * (i + 1) / total_steps)
+                on_progress(pct, 100, f"Analyzing frame {i + 1}/{total_steps}")
             # Face analysis for tutor
             tutor_face = FaceMetrics(eye_contact=None, facial_energy=None)
             if ts_ms in tutor_frame_map:
@@ -129,6 +152,10 @@ class VideoProcessor:
             student_prosody, student_is_speech = self._analyze_audio(
                 student_audio, student_audio_ts, sample_interval_ms, session_id, "student",
             )
+
+            # Response latency tracking
+            self._response_latency.update(session_id, "tutor", tutor_is_speech, ts_ms)
+            self._response_latency.update(session_id, "student", student_is_speech, ts_ms)
 
             # Interruption detection
             self._interruptions.update(
@@ -156,6 +183,7 @@ class VideoProcessor:
                 "tutor_attention_drift": False,
                 "student_attention_drift": False,
                 "drift_reason": None,
+                "response_latency_ms": self._response_latency.get_avg_latency_ms(session_id),
                 "timestamp_ms": ts_ms,
             }
             snapshots.append(snapshot)
@@ -192,6 +220,7 @@ class VideoProcessor:
             session_id, role,
             speech_frames=vad_result["speech_frames"],
             total_frames=vad_result["total_frames"],
+            timestamp_ms=start_ms,
         )
         prosody = self._prosody.analyze(b64)
         return prosody, vad_result["is_speech"]

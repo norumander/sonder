@@ -25,7 +25,8 @@ export function NudgeContainer({ ws }: NudgeContainerProps) {
       }
 
       if (msg.type === "nudge") {
-        enqueue(msg.data as NudgeData);
+        const timestampMs = (msg as { timestamp?: number }).timestamp ?? null;
+        enqueue(msg.data as NudgeData, timestampMs);
       }
     },
     [enqueue],
@@ -43,7 +44,11 @@ export function NudgeContainer({ ws }: NudgeContainerProps) {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 w-80">
-      <NudgeToast nudge={activeNudge} onDismiss={dismiss} />
+      <NudgeToast
+        nudge={activeNudge.nudge}
+        timestampMs={activeNudge.timestampMs}
+        onDismiss={dismiss}
+      />
     </div>
   );
 }

@@ -4,6 +4,11 @@ export interface Landmark {
   z: number;
 }
 
+export interface BlendshapeCategory {
+  categoryName: string;
+  score: number;
+}
+
 /**
  * MediaPipe Face Mesh iris landmark indices.
  * Left eye (person's right): iris center = 468
@@ -27,13 +32,28 @@ const RIGHT_EYE = {
   bottom: 374,
 } as const;
 
+/** Head pose landmark indices */
+const NOSE_TIP = 1;
+const LEFT_CHEEK = 234;
+const RIGHT_CHEEK = 454;
+
 const MIN_LANDMARKS = 478;
+
+/** Eye Aspect Ratio thresholds */
+const MIN_EAR = 0.15;
+const GOOD_EAR = 0.3;
+
+/** Head yaw asymmetry thresholds — relaxed so looking at the screen area is fine */
+const YAW_PENALTY_START = 0.25;
+const YAW_PENALTY_FULL = 0.5;
 
 /**
  * Compute eye contact score (0.0–1.0) from MediaPipe Face Mesh landmarks.
  *
- * The score measures how centered the iris is within the eye boundary.
- * A centered iris indicates the person is looking at the camera.
+ * Primary signal is iris gaze direction. Head pose is used as a fallback
+ * that blends in when eye detection quality is poor (eyes barely open,
+ * squinting, or partially obscured). When eyes are clearly visible,
+ * gaze direction alone determines the score.
  *
  * @returns Score 0.0–1.0, or null if iris landmarks are missing.
  */
@@ -42,30 +62,109 @@ export function computeEyeContact(landmarks: Landmark[]): number | null {
     return null;
   }
 
-  const leftScore = computeEyeScore(
+  // Eye openness — how reliably can we read the iris?
+  const leftEAR = computeEAR(
+    landmarks[LEFT_EYE.top],
+    landmarks[LEFT_EYE.bottom],
+    landmarks[LEFT_EYE.outer],
+    landmarks[LEFT_EYE.inner],
+  );
+  const rightEAR = computeEAR(
+    landmarks[RIGHT_EYE.top],
+    landmarks[RIGHT_EYE.bottom],
+    landmarks[RIGHT_EYE.outer],
+    landmarks[RIGHT_EYE.inner],
+  );
+  const avgEAR = (leftEAR + rightEAR) / 2;
+  const eyeOpenScore = earToScore(avgEAR);
+
+  // If eyes are fully closed, no eye contact regardless
+  if (eyeOpenScore === 0) return 0;
+
+  // Iris centering — primary gaze signal
+  const leftIrisScore = computeIrisScore(
     landmarks[LEFT_IRIS_CENTER],
     landmarks[LEFT_EYE.outer],
     landmarks[LEFT_EYE.inner],
     landmarks[LEFT_EYE.top],
     landmarks[LEFT_EYE.bottom],
   );
-
-  const rightScore = computeEyeScore(
+  const rightIrisScore = computeIrisScore(
     landmarks[RIGHT_IRIS_CENTER],
     landmarks[RIGHT_EYE.outer],
     landmarks[RIGHT_EYE.inner],
     landmarks[RIGHT_EYE.top],
     landmarks[RIGHT_EYE.bottom],
   );
+  const irisScore = (leftIrisScore + rightIrisScore) / 2;
 
-  return (leftScore + rightScore) / 2;
+  // Head pose — fallback signal
+  const headScore = computeHeadPoseScore(landmarks);
+
+  // Blend: when eyes are wide open (eyeOpenScore ~1), trust iris fully.
+  // When eyes are barely open (eyeOpenScore ~0), lean on head pose.
+  // eyeConfidence ranges from 0 (poor iris data) to 1 (reliable iris data).
+  const eyeConfidence = eyeOpenScore;
+  const score = irisScore * eyeConfidence + headScore * (1 - eyeConfidence);
+
+  return score * eyeOpenScore;
+}
+
+/**
+ * Compute Eye Aspect Ratio: vertical height / horizontal width.
+ * Low EAR means eyes are closed or covered.
+ */
+function computeEAR(
+  top: Landmark,
+  bottom: Landmark,
+  outer: Landmark,
+  inner: Landmark,
+): number {
+  const height = Math.abs(bottom.y - top.y);
+  const width = Math.abs(inner.x - outer.x);
+  if (width === 0) return 0;
+  return height / width;
+}
+
+/** Convert EAR to a 0–1 score with linear ramp. */
+function earToScore(ear: number): number {
+  if (ear < MIN_EAR) return 0;
+  if (ear >= GOOD_EAR) return 1;
+  return (ear - MIN_EAR) / (GOOD_EAR - MIN_EAR);
+}
+
+/**
+ * Estimate how directly the face is oriented toward the camera.
+ *
+ * Uses nose position relative to cheek landmarks to detect yaw.
+ * Returns 1.0 when facing camera, 0.0 when turned away.
+ */
+export function computeHeadPoseScore(landmarks: Landmark[]): number {
+  const nose = landmarks[NOSE_TIP];
+  const leftCheek = landmarks[LEFT_CHEEK];
+  const rightCheek = landmarks[RIGHT_CHEEK];
+
+  const leftDist = Math.abs(nose.x - leftCheek.x);
+  const rightDist = Math.abs(rightCheek.x - nose.x);
+  const totalWidth = leftDist + rightDist;
+
+  // If face width is too small, landmarks are unreliable — assume facing camera
+  if (totalWidth < 0.01) return 1;
+
+  // Asymmetry: 0 = centered/facing camera, approaches 1 = fully turned
+  const yawAsymmetry = Math.abs(leftDist - rightDist) / totalWidth;
+
+  if (yawAsymmetry <= YAW_PENALTY_START) return 1;
+  if (yawAsymmetry >= YAW_PENALTY_FULL) return 0;
+
+  return 1 - (yawAsymmetry - YAW_PENALTY_START) / (YAW_PENALTY_FULL - YAW_PENALTY_START);
 }
 
 /**
  * Compute how centered the iris is within one eye.
  * Returns 1.0 when perfectly centered, 0.0 when at boundary.
  */
-function computeEyeScore(
+function computeIrisScore(
   iris: Landmark,
   outer: Landmark,
   inner: Landmark,
@@ -90,4 +189,116 @@ function computeEyeScore(
 
   // Convert distance to score: centered = 1.0, at boundary = 0.0
   return Math.max(0, Math.min(1, 1 - distance));
+}
+
+/**
+ * Estimated gaze position on a virtual screen, for debug visualization.
+ * x: -1 (far left) to +1 (far right), 0 = center
+ * y: -1 (looking up) to +1 (looking down), 0 = center
+ */
+export interface GazePoint {
+  x: number;
+  y: number;
+}
+
+/**
+ * Estimate where the user is looking on the screen using iris offset + head yaw.
+ *
+ * Combines iris centering (where the iris sits in the eye socket) with
+ * head pose (which way the head is turned). Returns a normalized point
+ * where (0,0) is looking straight at the camera.
+ *
+ * @returns GazePoint with x,y in [-1, 1], or null if landmarks are insufficient.
+ */
+export function computeGazePoint(landmarks: Landmark[]): GazePoint | null {
+  if (landmarks.length < MIN_LANDMARKS) return null;
+
+  // Average iris offset from eye center (normalized by eye width/height)
+  const leftIris = landmarks[LEFT_IRIS_CENTER];
+  const rightIris = landmarks[RIGHT_IRIS_CENTER];
+
+  const leftCenterX = (landmarks[LEFT_EYE.outer].x + landmarks[LEFT_EYE.inner].x) / 2;
+  const leftCenterY = (landmarks[LEFT_EYE.top].y + landmarks[LEFT_EYE.bottom].y) / 2;
+  const leftHalfW = Math.abs(landmarks[LEFT_EYE.inner].x - landmarks[LEFT_EYE.outer].x) / 2;
+  const leftHalfH = Math.abs(landmarks[LEFT_EYE.bottom].y - landmarks[LEFT_EYE.top].y) / 2;
+
+  const rightCenterX = (landmarks[RIGHT_EYE.outer].x + landmarks[RIGHT_EYE.inner].x) / 2;
+  const rightCenterY = (landmarks[RIGHT_EYE.top].y + landmarks[RIGHT_EYE.bottom].y) / 2;
+  const rightHalfW = Math.abs(landmarks[RIGHT_EYE.inner].x - landmarks[RIGHT_EYE.outer].x) / 2;
+  const rightHalfH = Math.abs(landmarks[RIGHT_EYE.bottom].y - landmarks[RIGHT_EYE.top].y) / 2;
+
+  if (leftHalfW === 0 || leftHalfH === 0 || rightHalfW === 0 || rightHalfH === 0) return null;
+
+  // Iris offset from eye center, normalized to [-1, 1]
+  const leftDx = (leftIris.x - leftCenterX) / leftHalfW;
+  const leftDy = (leftIris.y - leftCenterY) / leftHalfH;
+  const rightDx = (rightIris.x - rightCenterX) / rightHalfW;
+  const rightDy = (rightIris.y - rightCenterY) / rightHalfH;
+
+  const irisDx = (leftDx + rightDx) / 2;
+  const irisDy = (leftDy + rightDy) / 2;
+
+  // Head yaw contribution: nose offset from face center
+  const nose = landmarks[NOSE_TIP];
+  const leftCheek = landmarks[LEFT_CHEEK];
+  const rightCheek = landmarks[RIGHT_CHEEK];
+  const faceCenterX = (leftCheek.x + rightCheek.x) / 2;
+  const faceWidth = Math.abs(rightCheek.x - leftCheek.x);
+  const headYaw = faceWidth > 0.01 ? (nose.x - faceCenterX) / (faceWidth / 2) : 0;
+
+  // Combine iris gaze (local eye movement) + head yaw (global head turn)
+  const gazeX = Math.max(-1, Math.min(1, irisDx * 0.6 + headYaw * 0.4));
+  const gazeY = Math.max(-1, Math.min(1, irisDy));
+
+  return { x: gazeX, y: gazeY };
+}
+
+/**
+ * Compute eye contact score from MediaPipe face blendshapes.
+ *
+ * Uses the model's direct gaze direction outputs (eyeLookOut, eyeLookUp,
+ * eyeLookDown) and blink scores rather than geometric iris centering.
+ * This is significantly more accurate for detecting when someone is
+ * looking away, looking down at notes, or has their eyes covered.
+ *
+ * @returns Score 0.0–1.0, or null if blendshapes are missing.
+ */
+export function computeEyeContactFromBlendshapes(
+  blendshapes: BlendshapeCategory[],
+): number | null {
+  if (blendshapes.length === 0) return null;
+
+  const scores = new Map<string, number>();
+  for (const bs of blendshapes) {
+    scores.set(bs.categoryName, bs.score);
+  }
+
+  // Eye blink — eyes closed/covered means no eye contact
+  const blinkL = scores.get("eyeBlinkLeft") ?? 0;
+  const blinkR = scores.get("eyeBlinkRight") ?? 0;
+  const avgBlink = (blinkL + blinkR) / 2;
+
+  // If eyes are mostly closed, score drops sharply
+  const openness = Math.max(0, 1 - avgBlink * 2);
+  if (openness === 0) return 0;
+
+  // Gaze direction — how much are eyes looking away from center?
+  // Each score is 0 (not looking that direction) to 1 (fully looking)
+  const lookOutL = scores.get("eyeLookOutLeft") ?? 0;
+  const lookOutR = scores.get("eyeLookOutRight") ?? 0;
+  const lookUpL = scores.get("eyeLookUpLeft") ?? 0;
+  const lookUpR = scores.get("eyeLookUpRight") ?? 0;
+  const lookDownL = scores.get("eyeLookDownLeft") ?? 0;
+  const lookDownR = scores.get("eyeLookDownRight") ?? 0;
+
+  // For each eye, take the strongest "away" signal
+  const leftAway = Math.max(lookOutL, lookUpL, lookDownL);
+  const rightAway = Math.max(lookOutR, lookUpR, lookDownR);
+  const avgAway = (leftAway + rightAway) / 2;
+
+  // Convert to eye contact score: center = 1.0, looking away = 0.0
+  // Gentle amplification — looking at the general screen area is fine
+  const gazeScore = Math.max(0, Math.min(1, 1 - avgAway * 1.2));
+
+  return gazeScore * openness;
 }

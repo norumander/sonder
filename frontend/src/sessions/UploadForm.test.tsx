@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { UploadForm } from "./UploadForm";
 
 const API_BASE = "http://localhost:8000";
@@ -42,19 +42,28 @@ describe("UploadForm", () => {
   });
 
   it("calls upload endpoint with FormData on submit", async () => {
-    const mockResponse = {
+    vi.useFakeTimers();
+    const uploadResponse = {
       session_id: "sess-123",
       session_type: "pre_recorded",
       status: "processing",
     };
+    const progressResponse = {
+      status: "completed",
+      progress: 100,
+      stage: "Done",
+    };
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve(mockResponse),
-      }),
-    );
+        json: () => Promise.resolve(uploadResponse),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(progressResponse),
+      });
+    vi.stubGlobal("fetch", mockFetch);
 
     render(<UploadForm token="test-token" onUploadComplete={onUploadComplete} />);
 
@@ -71,11 +80,15 @@ describe("UploadForm", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /upload/i }));
 
-    await waitFor(() => {
-      expect(onUploadComplete).toHaveBeenCalledWith("sess-123");
-    });
+    // Let the upload promise resolve
+    await act(() => vi.advanceTimersByTimeAsync(0));
 
-    expect(fetch).toHaveBeenCalledWith(
+    // Advance timer to trigger the first poll (1s interval)
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+
+    expect(onUploadComplete).toHaveBeenCalledWith("sess-123");
+
+    expect(mockFetch).toHaveBeenCalledWith(
       `${API_BASE}/sessions/upload`,
       expect.objectContaining({
         method: "POST",
@@ -84,8 +97,9 @@ describe("UploadForm", () => {
     );
 
     // Verify FormData was sent (body should be FormData instance)
-    const callArgs = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const callArgs = mockFetch.mock.calls[0];
     expect(callArgs[1].body).toBeInstanceOf(FormData);
+    vi.useRealTimers();
   });
 
   it("shows error on upload failure", async () => {
@@ -119,15 +133,14 @@ describe("UploadForm", () => {
   });
 
   it("disables button while uploading", async () => {
+    vi.useFakeTimers();
     let resolveRequest: (value: unknown) => void;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockReturnValue(
-        new Promise((resolve) => {
-          resolveRequest = resolve;
-        }),
-      ),
+    const mockFetch = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
     );
+    vi.stubGlobal("fetch", mockFetch);
 
     render(<UploadForm token="test-token" onUploadComplete={onUploadComplete} />);
 
@@ -145,6 +158,17 @@ describe("UploadForm", () => {
 
     expect(screen.getByRole("button", { name: /uploading/i })).toBeDisabled();
 
+    // Resolve the upload, then mock the progress poll to return completed
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          status: "completed",
+          progress: 100,
+          stage: "Done",
+        }),
+    });
+
     resolveRequest!({
       ok: true,
       json: () =>
@@ -155,15 +179,20 @@ describe("UploadForm", () => {
         }),
     });
 
-    await waitFor(() => {
-      expect(onUploadComplete).toHaveBeenCalled();
-    });
+    // Let the upload promise resolve
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    // Advance timer to trigger the first poll
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+
+    expect(onUploadComplete).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it("sends speed and offset values", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
+    vi.useFakeTimers();
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
         ok: true,
         json: () =>
           Promise.resolve({
@@ -171,8 +200,17 @@ describe("UploadForm", () => {
             session_type: "pre_recorded",
             status: "processing",
           }),
-      }),
-    );
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: "completed",
+            progress: 100,
+            stage: "Done",
+          }),
+      });
+    vi.stubGlobal("fetch", mockFetch);
 
     render(<UploadForm token="test-token" onUploadComplete={onUploadComplete} />);
 
@@ -194,13 +232,18 @@ describe("UploadForm", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /upload/i }));
 
-    await waitFor(() => {
-      expect(onUploadComplete).toHaveBeenCalled();
-    });
+    // Let the upload promise resolve
+    await act(() => vi.advanceTimersByTimeAsync(0));
 
-    const callArgs = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    // Advance timer to trigger the first poll
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+
+    expect(onUploadComplete).toHaveBeenCalled();
+
+    const callArgs = mockFetch.mock.calls[0];
     const formData = callArgs[1].body as FormData;
     expect(formData.get("timestamp_offset_ms")).toBe("5000");
     expect(formData.get("processing_speed")).toBe("4");
+    vi.useRealTimers();
   });
 });

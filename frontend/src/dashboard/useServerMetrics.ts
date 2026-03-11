@@ -44,6 +44,8 @@ export interface ServerMetricsState {
   historyLength: number;
   /** Active degradation warnings (face not detected, audio unavailable). */
   degradationWarnings: DegradationWarnings;
+  /** Pipeline latency in ms (client send → server process), or null if not available. */
+  pipelineLatency: number | null;
 }
 
 /** Build a degradation warning key for lookups. */
@@ -61,6 +63,7 @@ export function useServerMetrics(ws: WebSocket | null): ServerMetricsState {
   const [engagementScore, setEngagementScore] = useState(0);
   const [degradationWarnings, setDegradationWarnings] =
     useState<DegradationWarnings>({});
+  const [pipelineLatency, setPipelineLatency] = useState<number | null>(null);
   const historyRef = useRef<ServerMetrics[]>([]);
 
   const handleMessage = useCallback((event: MessageEvent) => {
@@ -74,6 +77,13 @@ export function useServerMetrics(ws: WebSocket | null): ServerMetricsState {
     if (msg.type === "server_metrics") {
       const data = msg.data as ServerMetrics;
       setMetrics(data);
+
+      // Compute pipeline latency: time from server processing to client receipt
+      if (data.server_timestamp_ms) {
+        const latency = Date.now() - data.server_timestamp_ms;
+        // Clamp to reasonable range (clock skew can produce negatives)
+        setPipelineLatency(Math.max(0, Math.min(latency, 5000)));
+      }
 
       // Append to history, cap at MAX_HISTORY
       const history = historyRef.current;
@@ -124,5 +134,6 @@ export function useServerMetrics(ws: WebSocket | null): ServerMetricsState {
     engagementScore,
     historyLength: historyRef.current.length,
     degradationWarnings,
+    pipelineLatency,
   };
 }

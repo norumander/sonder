@@ -1,12 +1,13 @@
 """Server metrics aggregator — combines all metric sources into unified snapshots.
 
 Wires together: client metrics buffer, VAD, talk time, interruptions,
-prosody, energy scoring, and attention drift detection.
+prosody, energy scoring, attention drift detection, and response latency.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from collections import defaultdict
 from typing import Any
 
@@ -15,6 +16,7 @@ from app.audio.vad import VadAnalyzer
 from app.metrics.attention_drift import AttentionDriftDetector
 from app.metrics.energy import EnergyScorer
 from app.metrics.interruptions import InterruptionDetector
+from app.metrics.response_latency import ResponseLatencyTracker
 from app.metrics.talk_time import TalkTimeTracker
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,7 @@ class MetricsAggregator:
         self._interruptions = InterruptionDetector()
         self._energy = EnergyScorer()
         self._drift = AttentionDriftDetector()
+        self._response_latency = ResponseLatencyTracker()
 
         # Latest prosody features per session/role
         self._prosody_cache: dict[str, dict[str, dict[str, float]]] = defaultdict(dict)
@@ -71,8 +74,12 @@ class MetricsAggregator:
             facial_energy: Facial energy score (0.0–1.0) or None.
             timestamp_ms: Timestamp in ms relative to session start.
         """
+        # Treat null eye contact as 0.0 — face not detected means
+        # the participant is not looking at the camera.
+        effective_eye_contact = eye_contact if eye_contact is not None else 0.0
+
         self._client_metrics[session_id][role] = {
-            "eye_contact": eye_contact,
+            "eye_contact": effective_eye_contact,
             "facial_energy": facial_energy,
             "timestamp_ms": timestamp_ms,
         }
@@ -83,7 +90,7 @@ class MetricsAggregator:
         drift_result = self._drift.update(
             session_id=session_id,
             role=role,
-            eye_contact=eye_contact,
+            eye_contact=effective_eye_contact,
             energy=energy,
             timestamp_ms=timestamp_ms,
         )
@@ -122,10 +129,16 @@ class MetricsAggregator:
             session_id, role,
             speech_frames=vad_result["speech_frames"],
             total_frames=vad_result["total_frames"],
+            timestamp_ms=timestamp_ms,
         )
 
         # Update VAD state for interruption detection
         self._vad_state[session_id][role] = vad_result["is_speech"]
+
+        # Track response latency (speaker transitions)
+        self._response_latency.update(
+            session_id, role, vad_result["is_speech"], timestamp_ms
+        )
 
         # Cross-reference for interruptions
         tutor_speech = self._vad_state[session_id]["tutor"]
@@ -193,7 +206,9 @@ class MetricsAggregator:
             "tutor_attention_drift": tutor_drift,
             "student_attention_drift": student_drift,
             "drift_reason": drift_reason,
+            "response_latency_ms": self._response_latency.get_avg_latency_ms(session_id),
             "timestamp_ms": timestamp_ms,
+            "server_timestamp_ms": int(time.time() * 1000),
         }
 
     def get_drift_changes(self, session_id: str) -> list[dict[str, Any]]:
@@ -210,6 +225,7 @@ class MetricsAggregator:
         self._talk_time.clear_session(session_id)
         self._interruptions.clear_session(session_id)
         self._drift.clear_session(session_id)
+        self._response_latency.clear_session(session_id)
         self._client_metrics.pop(session_id, None)
         self._vad_state.pop(session_id, None)
         self._prev_drift.pop(session_id, None)

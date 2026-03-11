@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-import { computeEyeContact } from "./eyeContact";
+import { computeEyeContact, computeEyeContactFromBlendshapes, computeGazePoint } from "./eyeContact";
+import type { GazePoint } from "./eyeContact";
 import { computeFacialEnergy } from "./facialEnergy";
 import type { Landmark } from "./eyeContact";
 
@@ -10,11 +11,15 @@ export interface FaceMeshState {
   eyeContactScore: number | null;
   facialEnergy: number | null;
   faceDetected: boolean;
+  gazePoint: GazePoint | null;
 }
 
 /**
- * Hook that runs MediaPipe Face Mesh on a video element and computes
+ * Hook that runs MediaPipe Face Landmarker on a video element and computes
  * eye contact score and facial energy every 500ms.
+ *
+ * Enables face blendshapes for accurate gaze direction detection.
+ * Falls back to landmark-based iris centering if blendshapes are unavailable.
  *
  * @param videoElement The HTMLVideoElement to process, or null if not ready
  * @returns Current eye contact score, facial energy, and face detection status
@@ -25,6 +30,7 @@ export function useFaceMesh(
   const [eyeContactScore, setEyeContactScore] = useState<number | null>(null);
   const [facialEnergy, setFacialEnergy] = useState<number | null>(null);
   const [faceDetected, setFaceDetected] = useState(false);
+  const [gazePoint, setGazePoint] = useState<GazePoint | null>(null);
 
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const prevLandmarksRef = useRef<Landmark[] | null>(null);
@@ -40,6 +46,7 @@ export function useFaceMesh(
       setFaceDetected(false);
       setEyeContactScore(null);
       setFacialEnergy(null);
+      setGazePoint(null);
       prevLandmarksRef.current = null;
       return;
     }
@@ -47,8 +54,17 @@ export function useFaceMesh(
     const landmarks = result.faceLandmarks[0] as Landmark[];
     setFaceDetected(true);
 
-    const eyeScore = computeEyeContact(landmarks);
+    // Prefer blendshapes — they directly measure gaze direction
+    let eyeScore: number | null = null;
+    if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
+      eyeScore = computeEyeContactFromBlendshapes(result.faceBlendshapes[0].categories);
+    }
+    // Fall back to landmark-based iris + head pose blend
+    if (eyeScore === null) {
+      eyeScore = computeEyeContact(landmarks);
+    }
     setEyeContactScore(eyeScore);
+    setGazePoint(computeGazePoint(landmarks));
 
     const energy = computeFacialEnergy(landmarks, prevLandmarksRef.current);
     setFacialEnergy(energy);
@@ -74,7 +90,9 @@ export function useFaceMesh(
         },
         runningMode: "VIDEO",
         numFaces: 1,
-        outputFaceBlendshapes: false,
+        minFaceDetectionConfidence: 0.7,
+        minFacePresenceConfidence: 0.7,
+        outputFaceBlendshapes: true,
         outputFacialTransformationMatrixes: false,
       });
 
@@ -110,5 +128,5 @@ export function useFaceMesh(
     };
   }, [videoElement, processFrame]);
 
-  return { eyeContactScore, facialEnergy, faceDetected };
+  return { eyeContactScore, facialEnergy, faceDetected, gazePoint };
 }

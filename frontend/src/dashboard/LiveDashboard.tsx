@@ -170,8 +170,29 @@ function EngagementBadge({ score }: { score: number }) {
   );
 }
 
+function LatencyIndicator({ latencyMs }: { latencyMs: number | null }) {
+  if (latencyMs === null) return null;
+
+  const color =
+    latencyMs < 100
+      ? "text-green-600"
+      : latencyMs < 300
+        ? "text-yellow-600"
+        : "text-red-600";
+
+  return (
+    <span
+      className={`text-xs font-mono ${color}`}
+      data-testid="pipeline-latency"
+      title="Pipeline latency (server → client)"
+    >
+      {latencyMs}ms
+    </span>
+  );
+}
+
 export function LiveDashboard({ state }: LiveDashboardProps) {
-  const { metrics, studentConnected, trends, engagementScore, degradationWarnings } =
+  const { metrics, studentConnected, trends, engagementScore, degradationWarnings, pipelineLatency } =
     state;
 
   if (!metrics) {
@@ -190,18 +211,43 @@ export function LiveDashboard({ state }: LiveDashboardProps) {
 
   return (
     <div className="space-y-4 p-4" data-testid="live-dashboard">
-      {/* Engagement score */}
-      <div className="flex justify-center">
+      {/* Engagement score + latency */}
+      <div className="flex items-center justify-center gap-4">
         <EngagementBadge score={engagementScore} />
+        <div className="flex flex-col items-center gap-1">
+          <LatencyIndicator latencyMs={pipelineLatency} />
+          {metrics.response_latency_ms != null && (
+            <span
+              className="text-xs font-mono text-gray-500"
+              data-testid="response-latency"
+              title="Avg response latency between speakers"
+            >
+              resp: {Math.round(metrics.response_latency_ms)}ms
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Shared metrics */}
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-2">
         <MetricCard
           label="Interruptions"
           value={formatMetricValue("interruptions", metrics.interruption_count)}
           status={getMetricStatus("interruptions", metrics.interruption_count)}
         />
+        {metrics.response_latency_ms != null && (
+          <MetricCard
+            label="Response Time"
+            value={`${(metrics.response_latency_ms / 1000).toFixed(1)}s`}
+            status={
+              metrics.response_latency_ms < 2000
+                ? "green"
+                : metrics.response_latency_ms < 5000
+                  ? "yellow"
+                  : "red"
+            }
+          />
+        )}
       </div>
 
       {/* Side-by-side participant sections */}

@@ -160,6 +160,8 @@ export function formatMetricValue(
     case "interruptions":
       return `${value}`;
     case "attention_drift":
-      return value ? "Yes" : "No";
+      // Label is "Attention" (positive) — invert the drift boolean:
+      // not drifting (false) → "Yes" (attentive), drifting (true) → "No"
+      return value ? "No" : "Yes";
   }
 }
