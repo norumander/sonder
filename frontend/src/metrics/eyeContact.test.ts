@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeEyeContact, computeEyeContactFromBlendshapes, computeHeadPoseScore, type Landmark, type BlendshapeCategory } from "./eyeContact";
+import { computeEyeContact, computeEyeContactFromBlendshapes, computeHeadPoseScore, EyeContactSmoother, type Landmark, type BlendshapeCategory } from "./eyeContact";
 
 /**
  * MediaPipe Face Mesh landmark indices used:
@@ -198,18 +198,51 @@ describe("computeHeadPoseScore", () => {
     expect(computeHeadPoseScore(landmarks)).toBe(1);
   });
 
-  it("returns low score when head is turned", () => {
+  it("returns low score when head is turned (yaw)", () => {
     const landmarks = makeLandmarks({
       1: { x: 0.62, y: 0.55, z: 0 },
     });
     expect(computeHeadPoseScore(landmarks)).toBeLessThan(0.5);
   });
 
-  it("returns 0 when head is fully turned away", () => {
+  it("returns 0 when head is fully turned away (yaw)", () => {
     const landmarks = makeLandmarks({
       1: { x: 0.68, y: 0.55, z: 0 },
     });
     expect(computeHeadPoseScore(landmarks)).toBe(0);
+  });
+
+  it("returns low score when looking down (pitch)", () => {
+    // Nose tip drops well below the midpoint between forehead and chin
+    const landmarks = makeLandmarks({
+      // Forehead reference (landmark 10) stays high
+      10: { x: 0.5, y: 0.25, z: 0 },
+      // Chin reference (landmark 152) stays low
+      152: { x: 0.5, y: 0.75, z: 0 },
+      // Nose tip drops toward chin — head tilted down
+      1: { x: 0.5, y: 0.68, z: 0 },
+    });
+    expect(computeHeadPoseScore(landmarks)).toBeLessThan(0.5);
+  });
+
+  it("returns low score when looking up (pitch)", () => {
+    const landmarks = makeLandmarks({
+      10: { x: 0.5, y: 0.25, z: 0 },
+      152: { x: 0.5, y: 0.75, z: 0 },
+      // Nose tip rises toward forehead — head tilted up
+      1: { x: 0.5, y: 0.32, z: 0 },
+    });
+    expect(computeHeadPoseScore(landmarks)).toBeLessThan(0.5);
+  });
+
+  it("returns high score for slight pitch variation (normal range)", () => {
+    const landmarks = makeLandmarks({
+      10: { x: 0.5, y: 0.25, z: 0 },
+      152: { x: 0.5, y: 0.75, z: 0 },
+      // Nose tip near expected center — slight tilt is fine
+      1: { x: 0.5, y: 0.52, z: 0 },
+    });
+    expect(computeHeadPoseScore(landmarks)).toBeGreaterThanOrEqual(0.8);
   });
 });
 
@@ -283,5 +316,58 @@ describe("computeEyeContactFromBlendshapes", () => {
     }));
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("EyeContactSmoother", () => {
+  it("returns the raw value on first sample", () => {
+    const smoother = new EyeContactSmoother();
+    expect(smoother.smooth(0.7)).toBeCloseTo(0.7);
+  });
+
+  it("smooths toward the new value over multiple samples", () => {
+    const smoother = new EyeContactSmoother(0.3);
+    smoother.smooth(1.0); // first sample: returns 1.0
+    const second = smoother.smooth(0.0); // sudden drop
+    // Should not drop to 0 immediately — smoothed toward 0
+    expect(second).toBeGreaterThan(0.2);
+    expect(second).toBeLessThan(1.0);
+  });
+
+  it("converges to a stable value after many identical samples", () => {
+    const smoother = new EyeContactSmoother(0.3);
+    let value = 0;
+    for (let i = 0; i < 20; i++) {
+      value = smoother.smooth(0.8);
+    }
+    expect(value).toBeCloseTo(0.8, 1);
+  });
+
+  it("filters out single-frame noise spikes", () => {
+    const smoother = new EyeContactSmoother(0.3);
+    // Establish a baseline
+    for (let i = 0; i < 10; i++) {
+      smoother.smooth(0.9);
+    }
+    // Single noise spike
+    const spiked = smoother.smooth(0.1);
+    // Should still be relatively high due to smoothing
+    expect(spiked).toBeGreaterThan(0.5);
+  });
+
+  it("resets state when reset() is called", () => {
+    const smoother = new EyeContactSmoother(0.3);
+    smoother.smooth(0.5);
+    smoother.smooth(0.5);
+    smoother.reset();
+    // After reset, next value is returned as-is
+    expect(smoother.smooth(0.9)).toBeCloseTo(0.9);
+  });
+
+  it("clamps output to 0–1 range", () => {
+    const smoother = new EyeContactSmoother(0.5);
+    expect(smoother.smooth(-0.5)).toBeGreaterThanOrEqual(0);
+    smoother.reset();
+    expect(smoother.smooth(1.5)).toBeLessThanOrEqual(1);
   });
 });

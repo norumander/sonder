@@ -11,6 +11,8 @@ import { useNavigate } from "react-router-dom";
 import { useMediaCapture } from "../media/useMediaCapture";
 import { useFaceMesh } from "../metrics/useFaceMesh";
 import { GazeDebugOverlay } from "../metrics/GazeDebugOverlay";
+import { CalibrationOverlay } from "../metrics/CalibrationOverlay";
+import { GazeCalibrator } from "../metrics/gazeCalibration";
 import { useMetricsStreaming } from "../shared/useMetricsStreaming";
 import { useAudioStreaming } from "../shared/useAudioStreaming";
 import { useServerMetrics } from "../dashboard/useServerMetrics";
@@ -39,8 +41,24 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
   }, []);
 
   const { videoStream, status, error, consumeAudioChunks } = useMediaCapture();
-  const { eyeContactScore, facialEnergy, gazePoint } = useFaceMesh(videoEl);
+  const [calibrator, setCalibrator] = useState<GazeCalibrator | null>(null);
+  const [calibrated, setCalibrated] = useState(false);
+  const { eyeContactScore, facialEnergy, gazePoint, rawGazePoint, faceDetected } = useFaceMesh(videoEl, calibrator);
   const [showGazeDebug, setShowGazeDebug] = useState(false);
+
+  const handleCalibrationComplete = useCallback((cal: GazeCalibrator) => {
+    setCalibrator(cal);
+    setCalibrated(true);
+  }, []);
+
+  const handleCalibrationSkip = useCallback(() => {
+    setCalibrated(true);
+  }, []);
+
+  const getCalibrationSample = useCallback(() => {
+    if (!rawGazePoint) return null;
+    return { dx: rawGazePoint.x, dy: rawGazePoint.y };
+  }, [rawGazePoint]);
   const { sessionEnded, endSession } = useTutorSessionControl(sessionId, token, ws);
   const serverMetricsState = useServerMetrics(ws);
 
@@ -139,6 +157,16 @@ export function TutorSessionPage({ sessionId, token, ws }: TutorSessionPageProps
 
       {/* Nudge toast overlay */}
       <NudgeContainer ws={ws} />
+
+      {/* Calibration overlay — shown once at session start */}
+      {!calibrated && status === "active" && (
+        <CalibrationOverlay
+          ready={faceDetected}
+          onSample={getCalibrationSample}
+          onComplete={handleCalibrationComplete}
+          onSkip={handleCalibrationSkip}
+        />
+      )}
     </div>
   );
 }

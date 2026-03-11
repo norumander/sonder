@@ -1,40 +1,50 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-import { computeEyeContact, computeEyeContactFromBlendshapes, computeGazePoint } from "./eyeContact";
+import { computeEyeContact, computeEyeContactFromBlendshapes, computeGazePoint, EyeContactSmoother } from "./eyeContact";
 import type { GazePoint } from "./eyeContact";
 import { computeFacialEnergy } from "./facialEnergy";
 import type { Landmark } from "./eyeContact";
+import type { GazeCalibrator } from "./gazeCalibration";
 
-const UPDATE_INTERVAL_MS = 500;
+/** Minimum time between frame processing to avoid overloading the GPU. */
+const MIN_FRAME_INTERVAL_MS = 150;
 
 export interface FaceMeshState {
   eyeContactScore: number | null;
   facialEnergy: number | null;
   faceDetected: boolean;
   gazePoint: GazePoint | null;
+  /** Raw gaze point before calibration correction, for use during calibration. */
+  rawGazePoint: GazePoint | null;
 }
 
 /**
  * Hook that runs MediaPipe Face Landmarker on a video element and computes
- * eye contact score and facial energy every 500ms.
+ * eye contact score and facial energy using requestAnimationFrame with a
+ * minimum interval of ~150ms (~7 FPS).
  *
  * Enables face blendshapes for accurate gaze direction detection.
  * Falls back to landmark-based iris centering if blendshapes are unavailable.
  *
  * @param videoElement The HTMLVideoElement to process, or null if not ready
+ * @param calibrator Optional gaze calibrator to correct for camera angle/distance
  * @returns Current eye contact score, facial energy, and face detection status
  */
 export function useFaceMesh(
   videoElement: HTMLVideoElement | null,
+  calibrator?: GazeCalibrator | null,
 ): FaceMeshState {
   const [eyeContactScore, setEyeContactScore] = useState<number | null>(null);
   const [facialEnergy, setFacialEnergy] = useState<number | null>(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const [gazePoint, setGazePoint] = useState<GazePoint | null>(null);
+  const [rawGazePoint, setRawGazePoint] = useState<GazePoint | null>(null);
 
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const prevLandmarksRef = useRef<Landmark[] | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastProcessedRef = useRef<number>(0);
+  const smootherRef = useRef(new EyeContactSmoother(0.3));
 
   const processFrame = useCallback(() => {
     if (!landmarkerRef.current || !videoElement) return;
@@ -47,7 +57,9 @@ export function useFaceMesh(
       setEyeContactScore(null);
       setFacialEnergy(null);
       setGazePoint(null);
+      setRawGazePoint(null);
       prevLandmarksRef.current = null;
+      smootherRef.current.reset();
       return;
     }
 
@@ -63,8 +75,16 @@ export function useFaceMesh(
     if (eyeScore === null) {
       eyeScore = computeEyeContact(landmarks);
     }
-    setEyeContactScore(eyeScore);
-    setGazePoint(computeGazePoint(landmarks));
+    setEyeContactScore(eyeScore !== null ? smootherRef.current.smooth(eyeScore) : null);
+
+    const rawGaze = computeGazePoint(landmarks);
+    setRawGazePoint(rawGaze);
+    if (rawGaze && calibrator?.offset) {
+      const corrected = calibrator.correct(rawGaze.x, rawGaze.y);
+      setGazePoint(corrected);
+    } else {
+      setGazePoint(rawGaze);
+    }
 
     const energy = computeFacialEnergy(landmarks, prevLandmarksRef.current);
     setFacialEnergy(energy);
@@ -103,10 +123,18 @@ export function useFaceMesh(
 
       landmarkerRef.current = landmarker;
 
-      // Start processing at UPDATE_INTERVAL_MS
+      // Start rAF-based processing loop with throttle
       if (videoElement) {
-        processFrame();
-        intervalRef.current = setInterval(processFrame, UPDATE_INTERVAL_MS);
+        function loop() {
+          if (cancelled) return;
+          const now = performance.now();
+          if (now - lastProcessedRef.current >= MIN_FRAME_INTERVAL_MS) {
+            lastProcessedRef.current = now;
+            processFrame();
+          }
+          rafRef.current = requestAnimationFrame(loop);
+        }
+        rafRef.current = requestAnimationFrame(loop);
       }
     }
 
@@ -116,9 +144,9 @@ export function useFaceMesh(
 
     return () => {
       cancelled = true;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
       }
       if (landmarkerRef.current) {
         landmarkerRef.current.close();
@@ -128,5 +156,5 @@ export function useFaceMesh(
     };
   }, [videoElement, processFrame]);
 
-  return { eyeContactScore, facialEnergy, faceDetected, gazePoint };
+  return { eyeContactScore, facialEnergy, faceDetected, gazePoint, rawGazePoint };
 }

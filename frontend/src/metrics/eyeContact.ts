@@ -36,6 +36,12 @@ const RIGHT_EYE = {
 const NOSE_TIP = 1;
 const LEFT_CHEEK = 234;
 const RIGHT_CHEEK = 454;
+const FOREHEAD = 10;
+const CHIN = 152;
+
+/** Head pitch thresholds — how far nose can deviate from expected vertical center */
+const PITCH_PENALTY_START = 0.15;
+const PITCH_PENALTY_FULL = 0.35;
 
 const MIN_LANDMARKS = 478;
 
@@ -136,28 +142,49 @@ function earToScore(ear: number): number {
 /**
  * Estimate how directly the face is oriented toward the camera.
  *
- * Uses nose position relative to cheek landmarks to detect yaw.
- * Returns 1.0 when facing camera, 0.0 when turned away.
+ * Combines yaw (left/right turn) and pitch (up/down tilt) detection.
+ * Returns 1.0 when facing camera, 0.0 when turned or tilted away.
  */
 export function computeHeadPoseScore(landmarks: Landmark[]): number {
   const nose = landmarks[NOSE_TIP];
   const leftCheek = landmarks[LEFT_CHEEK];
   const rightCheek = landmarks[RIGHT_CHEEK];
 
+  // --- Yaw (left/right) ---
   const leftDist = Math.abs(nose.x - leftCheek.x);
   const rightDist = Math.abs(rightCheek.x - nose.x);
   const totalWidth = leftDist + rightDist;
 
-  // If face width is too small, landmarks are unreliable — assume facing camera
-  if (totalWidth < 0.01) return 1;
+  let yawScore = 1;
+  if (totalWidth >= 0.01) {
+    const yawAsymmetry = Math.abs(leftDist - rightDist) / totalWidth;
+    if (yawAsymmetry >= YAW_PENALTY_FULL) {
+      yawScore = 0;
+    } else if (yawAsymmetry > YAW_PENALTY_START) {
+      yawScore = 1 - (yawAsymmetry - YAW_PENALTY_START) / (YAW_PENALTY_FULL - YAW_PENALTY_START);
+    }
+  }
 
-  // Asymmetry: 0 = centered/facing camera, approaches 1 = fully turned
-  const yawAsymmetry = Math.abs(leftDist - rightDist) / totalWidth;
+  // --- Pitch (up/down) ---
+  const forehead = landmarks[FOREHEAD];
+  const chin = landmarks[CHIN];
+  const faceHeight = Math.abs(chin.y - forehead.y);
 
-  if (yawAsymmetry <= YAW_PENALTY_START) return 1;
-  if (yawAsymmetry >= YAW_PENALTY_FULL) return 0;
+  let pitchScore = 1;
+  if (faceHeight >= 0.01) {
+    // Expected nose position is ~55% from forehead to chin when facing camera
+    const expectedNoseY = forehead.y + faceHeight * 0.55;
+    const pitchDeviation = Math.abs(nose.y - expectedNoseY) / faceHeight;
 
-  return 1 - (yawAsymmetry - YAW_PENALTY_START) / (YAW_PENALTY_FULL - YAW_PENALTY_START);
+    if (pitchDeviation >= PITCH_PENALTY_FULL) {
+      pitchScore = 0;
+    } else if (pitchDeviation > PITCH_PENALTY_START) {
+      pitchScore = 1 - (pitchDeviation - PITCH_PENALTY_START) / (PITCH_PENALTY_FULL - PITCH_PENALTY_START);
+    }
+  }
+
+  // Combined: both yaw and pitch must be good for a high score
+  return yawScore * pitchScore;
 }
 
 /**
@@ -251,6 +278,38 @@ export function computeGazePoint(landmarks: Landmark[]): GazePoint | null {
   const gazeY = Math.max(-1, Math.min(1, irisDy));
 
   return { x: gazeX, y: gazeY };
+}
+
+/**
+ * Exponential moving average filter for eye contact scores.
+ *
+ * Smooths frame-to-frame jitter while remaining responsive to real gaze
+ * changes. The alpha parameter controls responsiveness: lower alpha = more
+ * smoothing (slower response), higher alpha = less smoothing (faster response).
+ */
+export class EyeContactSmoother {
+  private smoothed: number | null = null;
+  private readonly alpha: number;
+
+  /** @param alpha Smoothing factor in (0, 1]. Default 0.3 is a good balance. */
+  constructor(alpha = 0.3) {
+    this.alpha = Math.max(0.01, Math.min(1, alpha));
+  }
+
+  /** Feed a raw score and get back the smoothed value. */
+  smooth(raw: number): number {
+    if (this.smoothed === null) {
+      this.smoothed = raw;
+    } else {
+      this.smoothed = this.alpha * raw + (1 - this.alpha) * this.smoothed;
+    }
+    return Math.max(0, Math.min(1, this.smoothed));
+  }
+
+  /** Clear state so the next sample is treated as the first. */
+  reset(): void {
+    this.smoothed = null;
+  }
 }
 
 /**

@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMediaCapture } from "../media/useMediaCapture";
 import { useFaceMesh } from "../metrics/useFaceMesh";
+import { CalibrationOverlay } from "../metrics/CalibrationOverlay";
+import { GazeCalibrator } from "../metrics/gazeCalibration";
 import { useMetricsStreaming } from "../shared/useMetricsStreaming";
 import { useAudioStreaming } from "../shared/useAudioStreaming";
 
@@ -28,7 +30,23 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
   }, []);
 
   const { videoStream, status, error, consumeAudioChunks } = useMediaCapture();
-  const { eyeContactScore, facialEnergy } = useFaceMesh(videoEl);
+  const [calibrator, setCalibrator] = useState<GazeCalibrator | null>(null);
+  const [calibrated, setCalibrated] = useState(false);
+  const { eyeContactScore, facialEnergy, faceDetected, rawGazePoint } = useFaceMesh(videoEl, calibrator);
+
+  const handleCalibrationComplete = useCallback((cal: GazeCalibrator) => {
+    setCalibrator(cal);
+    setCalibrated(true);
+  }, []);
+
+  const handleCalibrationSkip = useCallback(() => {
+    setCalibrated(true);
+  }, []);
+
+  const getCalibrationSample = useCallback(() => {
+    if (!rawGazePoint) return null;
+    return { dx: rawGazePoint.x, dy: rawGazePoint.y };
+  }, [rawGazePoint]);
 
   // Request current session status on mount — syncs state in case
   // we missed a tutor_status message (e.g., rejoin after leaving).
@@ -104,6 +122,16 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
       >
         Leave Session
       </button>
+
+      {/* Calibration overlay — shown once at session start */}
+      {!calibrated && status === "active" && (
+        <CalibrationOverlay
+          ready={faceDetected}
+          onSample={getCalibrationSample}
+          onComplete={handleCalibrationComplete}
+          onSkip={handleCalibrationSkip}
+        />
+      )}
     </div>
   );
 }
