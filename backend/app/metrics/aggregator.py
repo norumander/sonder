@@ -213,6 +213,10 @@ class MetricsAggregator:
             "server_timestamp_ms": int(time.time() * 1000),
         }
 
+    def get_speaking_state(self, session_id: str, role: str) -> bool:
+        """Return whether a participant is currently speaking."""
+        return self._vad_state[session_id].get(role, False)
+
     def get_drift_changes(self, session_id: str) -> list[dict[str, Any]]:
         """Consume and return any pending drift state changes.
 

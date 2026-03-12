@@ -82,7 +82,7 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
       if (chunks.length > 0) {
         sendAudioChunks(chunks);
       }
-    }, 1000);
+    }, 250);
     return () => clearInterval(interval);
   }, [consumeAudioChunks, sendAudioChunks]);
 

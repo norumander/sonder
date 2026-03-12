@@ -422,6 +422,15 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
                 metrics_aggregator.process_audio_chunk(
                     session_id, role, data.get("data", ""), timestamp
                 )
+                # Send speaking state to student immediately for responsive UI
+                if role == "student":
+                    is_speaking = metrics_aggregator.get_speaking_state(
+                        session_id, "student"
+                    )
+                    await _send_to_student(session_id, {
+                        "type": "speaking_state",
+                        "data": {"is_speaking": is_speaking},
+                    })
                 # Track audio liveness for degradation detection
                 audio_change = degradation_tracker.update_audio_status(
                     session_id, role, timestamp

@@ -27,13 +27,14 @@ const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   sampleRate: 16000,
   channelCount: 1,
   echoCancellation: true,
+  noiseSuppression: true,
 };
 
-const CHUNK_DURATION_MS = 1000;
+const CHUNK_DURATION_MS = 250;
 
 /**
  * Hook that captures webcam video and microphone audio via getUserMedia.
- * Audio is chunked into 1-second base64 PCM segments.
+ * Audio is chunked into 250ms base64 PCM segments.
  *
  * - Webcam denied → error state, session cannot start.
  * - Mic denied → video-only mode with micAvailable=false.

@@ -9,8 +9,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Maximum number of chunks to buffer per session/role.
-# At 1 chunk/second, 120 chunks = 2 minutes of audio (~3.8 MB base64).
-MAX_CHUNKS_PER_ROLE = 120
+# At 4 chunks/second (250ms each), 480 chunks = 2 minutes of audio (~3.8 MB base64).
+MAX_CHUNKS_PER_ROLE = 480
 
 
 class AudioChunkBuffer:
