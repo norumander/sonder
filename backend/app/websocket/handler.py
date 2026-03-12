@@ -211,6 +211,22 @@ async def _broadcast_metrics(session_id: str, timestamp_ms: int) -> None:
             )
 
 
+async def _generate_summary_background(session_id: str) -> None:
+    """Pre-generate session summary in background so analytics page loads instantly."""
+    try:
+        import uuid as _uuid
+
+        from app.summary.generator import generate_summary
+
+        sid = _uuid.UUID(session_id)
+        factory = _get_session_factory()
+        async with factory() as db:
+            await generate_summary(sid, db)
+        logger.info("Background summary generated: session=%s", session_id)
+    except Exception:
+        logger.warning("Background summary generation failed: session=%s", session_id)
+
+
 async def _send_degradation_change(session_id: str, change) -> None:
     """Send a degradation_warning message to the tutor if a state change occurred."""
     if change is not None:
@@ -406,6 +422,8 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
             elif msg_type == "end_session" and role == "tutor":
                 await _broadcast_session_ended(session_id, "tutor_ended")
                 await _end_session_in_db(session_id)
+                # Pre-generate summary in background so analytics page loads instantly
+                asyncio.create_task(_generate_summary_background(session_id))
                 break
             elif msg_type == "student_leave" and role == "student":
                 await _notify_student_status(session_id, connected=False)

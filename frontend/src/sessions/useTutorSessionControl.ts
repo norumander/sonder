@@ -42,16 +42,15 @@ export function useTutorSessionControl(
       wsRef.current.send(JSON.stringify({ type: "end_session" }));
     }
 
-    // Also call REST API to persist status change
-    try {
-      await fetch(`${API_BASE}/sessions/${sessionIdRef.current}/end`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${tokenRef.current}` },
-      });
-    } catch {
-      // Network failure is acceptable — the WS end_session message
-      // already triggered the server-side session end.
-    }
+    // Also call REST API to persist status change (fire-and-forget).
+    // The WS end_session message already triggers server-side session end
+    // and summary generation, so we don't await this redundant call.
+    fetch(`${API_BASE}/sessions/${sessionIdRef.current}/end`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${tokenRef.current}` },
+    }).catch(() => {
+      // Network failure is acceptable
+    });
   }, []);
 
   // Register beforeunload handler to end session on tutor tab close
