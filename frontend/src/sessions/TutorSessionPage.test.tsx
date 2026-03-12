@@ -12,6 +12,7 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
+const mockToggleMute = vi.fn();
 const defaultMediaCapture = {
   videoStream: null,
   status: "active" as const,
@@ -19,6 +20,8 @@ const defaultMediaCapture = {
   micAvailable: true,
   audioChunks: [],
   consumeAudioChunks: vi.fn(() => []),
+  isMuted: false,
+  toggleMute: mockToggleMute,
 };
 
 const mockEndSession = vi.fn();
@@ -156,5 +159,36 @@ describe("TutorSessionPage", () => {
     );
 
     expect(screen.getByTestId("live-dashboard")).toHaveTextContent("waiting");
+  });
+
+  it("renders mute toggle button", () => {
+    renderWithRouter(
+      <TutorSessionPage sessionId="s1" token="jwt" ws={null} />,
+    );
+
+    expect(screen.getByTestId("mute-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("mute-toggle")).toHaveTextContent("Mic");
+  });
+
+  it("calls toggleMute when mute button is clicked", () => {
+    renderWithRouter(
+      <TutorSessionPage sessionId="s1" token="jwt" ws={null} />,
+    );
+
+    fireEvent.click(screen.getByTestId("mute-toggle"));
+    expect(mockToggleMute).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows muted state when isMuted is true", () => {
+    mockUseMediaCapture.mockReturnValue({
+      ...defaultMediaCapture,
+      isMuted: true,
+    });
+
+    renderWithRouter(
+      <TutorSessionPage sessionId="s1" token="jwt" ws={null} />,
+    );
+
+    expect(screen.getByTestId("mute-toggle")).toHaveTextContent("Muted");
   });
 });

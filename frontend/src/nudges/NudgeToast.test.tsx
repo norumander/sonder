@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { NudgeToast, formatSessionTime } from "./NudgeToast";
+import { NudgeToast, formatSessionTime, getTriggerSource } from "./NudgeToast";
 import type { NudgeData } from "../shared/types";
 
 describe("NudgeToast", () => {
   function makeNudge(overrides: Partial<NudgeData> = {}): NudgeData {
     return {
       nudge_type: "student_silent",
-      message: "Check for understanding",
+      message: "Student hasn't spoken — check for understanding",
       priority: "medium",
       ...overrides,
     };
@@ -15,7 +15,7 @@ describe("NudgeToast", () => {
 
   it("renders nudge message text", () => {
     render(<NudgeToast nudge={makeNudge()} onDismiss={() => {}} />);
-    expect(screen.getByText("Check for understanding")).toBeTruthy();
+    expect(screen.getByText(/check for understanding/i)).toBeTruthy();
   });
 
   it("calls onDismiss when close button clicked", () => {
@@ -40,12 +40,22 @@ describe("NudgeToast", () => {
   it("applies low priority styling", () => {
     render(<NudgeToast nudge={makeNudge({ priority: "low" })} onDismiss={() => {}} />);
     const toast = screen.getByTestId("nudge-toast");
-    expect(toast.className).toContain("border-blue");
+    expect(toast.className).toContain("border-brand-teal");
   });
 
   it("displays a coaching label", () => {
     render(<NudgeToast nudge={makeNudge()} onDismiss={() => {}} />);
     expect(screen.getByText(/coaching/i)).toBeTruthy();
+  });
+
+  it("shows Student source tag for student-triggered nudges", () => {
+    render(<NudgeToast nudge={makeNudge({ nudge_type: "student_silent" })} onDismiss={() => {}} />);
+    expect(screen.getByTestId("nudge-source").textContent).toBe("Student");
+  });
+
+  it("shows Tutor source tag for tutor-triggered nudges", () => {
+    render(<NudgeToast nudge={makeNudge({ nudge_type: "tutor_dominant" })} onDismiss={() => {}} />);
+    expect(screen.getByTestId("nudge-source").textContent).toBe("Tutor");
   });
 
   it("displays session-relative timestamp when provided", () => {
@@ -57,6 +67,23 @@ describe("NudgeToast", () => {
   it("does not display timestamp when not provided", () => {
     render(<NudgeToast nudge={makeNudge()} onDismiss={() => {}} />);
     expect(screen.queryByTestId("nudge-timestamp")).toBeNull();
+  });
+});
+
+describe("getTriggerSource", () => {
+  it("returns Student for student_ prefixed types", () => {
+    expect(getTriggerSource("student_silent")).toBe("Student");
+    expect(getTriggerSource("student_low_eye_contact")).toBe("Student");
+    expect(getTriggerSource("student_energy_drop")).toBe("Student");
+  });
+
+  it("returns Tutor for tutor_ prefixed types", () => {
+    expect(getTriggerSource("tutor_dominant")).toBe("Tutor");
+    expect(getTriggerSource("tutor_low_eye_contact")).toBe("Tutor");
+  });
+
+  it("returns Student for interruption_spike", () => {
+    expect(getTriggerSource("interruption_spike")).toBe("Student");
   });
 });
 

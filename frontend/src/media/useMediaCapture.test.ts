@@ -183,4 +183,60 @@ describe("useMediaCapture", () => {
       expect(result.current.error).toMatch(/not supported/i);
     });
   });
+
+  it("starts unmuted by default", async () => {
+    const stream = createMockMediaStream(true, true);
+    mockGetUserMedia.mockResolvedValue(stream);
+
+    const { result } = renderHook(() => useMediaCapture());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("active");
+    });
+
+    expect(result.current.isMuted).toBe(false);
+  });
+
+  it("toggleMute disables audio tracks and sets isMuted", async () => {
+    const stream = createMockMediaStream(true, true);
+    mockGetUserMedia.mockResolvedValue(stream);
+
+    const { result } = renderHook(() => useMediaCapture());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("active");
+    });
+
+    act(() => {
+      result.current.toggleMute();
+    });
+
+    expect(result.current.isMuted).toBe(true);
+    for (const track of stream.getAudioTracks()) {
+      expect(track.enabled).toBe(false);
+    }
+  });
+
+  it("toggleMute re-enables audio tracks on second call", async () => {
+    const stream = createMockMediaStream(true, true);
+    mockGetUserMedia.mockResolvedValue(stream);
+
+    const { result } = renderHook(() => useMediaCapture());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("active");
+    });
+
+    act(() => {
+      result.current.toggleMute(); // mute
+    });
+    act(() => {
+      result.current.toggleMute(); // unmute
+    });
+
+    expect(result.current.isMuted).toBe(false);
+    for (const track of stream.getAudioTracks()) {
+      expect(track.enabled).toBe(true);
+    }
+  });
 });

@@ -27,12 +27,12 @@ class NudgeResult:
 
 
 NUDGE_MESSAGES = {
-    "student_silent": "Check for understanding",
-    "student_low_eye_contact": "Student may be distracted",
-    "tutor_dominant": "Try asking a question",
-    "student_energy_drop": "Consider a short break or change approach",
-    "interruption_spike": "Give more wait time",
-    "tutor_low_eye_contact": "Try making more eye contact",
+    "student_silent": "Student hasn't spoken — check for understanding",
+    "student_low_eye_contact": "Student is looking away — they may be distracted",
+    "tutor_dominant": "You've been talking most of the time — try asking a question",
+    "student_energy_drop": "Student's energy dropped — consider a break or new approach",
+    "interruption_spike": "Frequent interruptions — try giving more wait time",
+    "tutor_low_eye_contact": "Your eye contact dropped — try looking at the camera",
 }
 
 NUDGE_PRIORITIES = {

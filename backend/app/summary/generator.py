@@ -193,6 +193,14 @@ async def generate_summary(
     Returns:
         The created SessionSummary record.
     """
+    # Check for existing summary (race condition guard)
+    existing_result = await db.execute(
+        select(SessionSummary).where(SessionSummary.session_id == session_id)
+    )
+    existing = existing_result.scalar_one_or_none()
+    if existing is not None:
+        return existing
+
     # Fetch session to get start_time for relative timestamp conversion
     session_result = await db.execute(
         select(Session).where(Session.id == session_id)

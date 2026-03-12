@@ -98,7 +98,7 @@ async def sample_session(db_session: AsyncSession):
         session_id=session.id,
         timestamp_ms=start_epoch_ms + 3000,
         nudge_type=NudgeType.TUTOR_DOMINANT,
-        message="You've been talking for a while. Try asking a question.",
+        message="You've been talking most of the time — try asking a question",
         priority=NudgePriority.MEDIUM,
         trigger_metrics={"tutor_talk_pct": 65.0},
     )
@@ -168,7 +168,7 @@ async def session_with_varied_metrics(db_session: AsyncSession):
         session_id=session.id,
         timestamp_ms=start_epoch_ms + 2000,
         nudge_type=NudgeType.STUDENT_LOW_EYE_CONTACT,
-        message="Student may be distracted.",
+        message="Student is looking away — they may be distracted",
         priority=NudgePriority.HIGH,
         trigger_metrics={"student_eye_contact": 0.2},
     )

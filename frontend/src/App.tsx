@@ -2,7 +2,7 @@
  * Root application component with routing, authentication, and navigation.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -138,18 +138,33 @@ function StudentFlow() {
   // WebSocket lives at this level — stays open as long as session exists,
   // regardless of active/left state. This ensures session_ended is always received.
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [studentConnectKey, setStudentConnectKey] = useState(0);
+  const studentRetryRef = useRef(0);
 
   useEffect(() => {
     if (!session) {
       setWs(null);
       return;
     }
+
     const socket = new WebSocket(buildWsUrl(session.sessionId, session.participantToken));
     setWs(socket);
+
+    socket.addEventListener("open", () => {
+      studentRetryRef.current = 0;
+    });
+
+    socket.addEventListener("close", (event) => {
+      if (event.code === 1000 || event.code === 4004) return;
+      const delay = Math.min(1000 * 2 ** studentRetryRef.current, 8000);
+      studentRetryRef.current++;
+      setTimeout(() => setStudentConnectKey((k) => k + 1), delay);
+    });
+
     return () => {
-      socket.close();
+      socket.close(1000);
     };
-  }, [session?.sessionId, session?.participantToken]);
+  }, [session?.sessionId, session?.participantToken, studentConnectKey]);
 
   // Session-ended detection at the flow level — catches the message
   // whether the student is on the active session screen or the left screen.
@@ -249,15 +264,32 @@ function TutorSessionRoute() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { token } = useAuth();
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [connectKey, setConnectKey] = useState(0);
+  const retryRef = useRef(0);
 
   useEffect(() => {
     if (!token || !sessionId) return;
+
     const socket = new WebSocket(buildWsUrl(sessionId, token));
     setWs(socket);
+
+    socket.addEventListener("open", () => {
+      retryRef.current = 0;
+    });
+
+    socket.addEventListener("close", (event) => {
+      // Don't reconnect if closed cleanly by the app (e.g. end session, replaced)
+      if (event.code === 1000 || event.code === 4004) return;
+      // Exponential backoff: 1s, 2s, 4s, capped at 8s
+      const delay = Math.min(1000 * 2 ** retryRef.current, 8000);
+      retryRef.current++;
+      setTimeout(() => setConnectKey((k) => k + 1), delay);
+    });
+
     return () => {
-      socket.close();
+      socket.close(1000);
     };
-  }, [sessionId, token]);
+  }, [sessionId, token, connectKey]);
 
   if (!sessionId || !token) return null;
 

@@ -52,9 +52,9 @@ describe("NudgeSettings", () => {
 
     expect(screen.getByText("Student Silent")).toBeInTheDocument();
     expect(screen.getByText("Student Low Eye Contact")).toBeInTheDocument();
-    expect(screen.getByText("Tutor Dominant")).toBeInTheDocument();
+    expect(screen.getByText("Tutor Talking Too Much")).toBeInTheDocument();
     expect(screen.getByText("Student Energy Drop")).toBeInTheDocument();
-    expect(screen.getByText("Interruption Spike")).toBeInTheDocument();
+    expect(screen.getByText("Frequent Interruptions")).toBeInTheDocument();
     expect(screen.getByText("Tutor Low Eye Contact")).toBeInTheDocument();
   });
 
@@ -63,10 +63,10 @@ describe("NudgeSettings", () => {
       <NudgeSettings preferences={DEFAULT_PREFS} onSave={onSave} saving={false} />,
     );
 
-    const silentInput = screen.getByLabelText("Silent duration (minutes)");
+    const silentInput = screen.getByLabelText("Student silent for (minutes)");
     expect(silentInput).toHaveValue(3);
 
-    const eyeContactInput = screen.getByLabelText("Eye contact threshold");
+    const eyeContactInput = screen.getByLabelText(/Eye contact minimum/);
     expect(eyeContactInput).toHaveValue(0.3);
   });
 
@@ -95,7 +95,7 @@ describe("NudgeSettings", () => {
       <NudgeSettings preferences={DEFAULT_PREFS} onSave={onSave} saving={false} />,
     );
 
-    const silentInput = screen.getByLabelText("Silent duration (minutes)");
+    const silentInput = screen.getByLabelText("Student silent for (minutes)");
     fireEvent.change(silentInput, { target: { value: "5" } });
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));

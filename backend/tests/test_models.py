@@ -199,7 +199,7 @@ async def test_create_nudge_with_type_and_priority(async_session: AsyncSession):
         session_id=session.id,
         timestamp_ms=30000,
         nudge_type=NudgeType.STUDENT_SILENT,
-        message="Check for understanding",
+        message="Student hasn't spoken — check for understanding",
         priority=NudgePriority.MEDIUM,
         trigger_metrics={"student_talk_pct": 0.0, "silence_duration_s": 185},
     )
@@ -210,7 +210,7 @@ async def test_create_nudge_with_type_and_priority(async_session: AsyncSession):
     fetched = result.scalar_one()
     assert fetched.nudge_type == NudgeType.STUDENT_SILENT
     assert fetched.priority == NudgePriority.MEDIUM
-    assert fetched.message == "Check for understanding"
+    assert fetched.message == "Student hasn't spoken — check for understanding"
     assert fetched.trigger_metrics["silence_duration_s"] == 185
 
 

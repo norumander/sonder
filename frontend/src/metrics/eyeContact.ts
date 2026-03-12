@@ -313,6 +313,94 @@ export class EyeContactSmoother {
 }
 
 /**
+ * Estimate gaze direction from MediaPipe face blendshapes.
+ *
+ * Uses eyeLookOut/In/Up/Down blendshapes which directly encode where
+ * each eye is pointing — far more accurate for vertical tracking than
+ * landmark-based iris centering (which relies on sub-pixel pupil position).
+ *
+ * @returns GazePoint with x,y in [-1, 1], or null if blendshapes are missing.
+ */
+export function computeGazePointFromBlendshapes(
+  blendshapes: BlendshapeCategory[],
+): GazePoint | null {
+  if (blendshapes.length === 0) return null;
+
+  const scores = new Map<string, number>();
+  for (const bs of blendshapes) {
+    scores.set(bs.categoryName, bs.score);
+  }
+
+  // Horizontal: Out = away from nose, In = toward nose
+  // Left eye: Out = looking left, In = looking right
+  // Right eye: Out = looking right, In = looking left
+  const lookOutL = scores.get("eyeLookOutLeft") ?? 0;
+  const lookInL = scores.get("eyeLookInLeft") ?? 0;
+  const lookOutR = scores.get("eyeLookOutRight") ?? 0;
+  const lookInR = scores.get("eyeLookInRight") ?? 0;
+
+  // Left eye x: negative=left, positive=right
+  const leftEyeX = -lookOutL + lookInL;
+  // Right eye x: negative=left, positive=right
+  const rightEyeX = -lookInR + lookOutR;
+  const gazeX = (leftEyeX + rightEyeX) / 2;
+
+  // Vertical
+  const lookUpL = scores.get("eyeLookUpLeft") ?? 0;
+  const lookUpR = scores.get("eyeLookUpRight") ?? 0;
+  const lookDownL = scores.get("eyeLookDownLeft") ?? 0;
+  const lookDownR = scores.get("eyeLookDownRight") ?? 0;
+
+  const leftEyeY = -lookUpL + lookDownL;
+  const rightEyeY = -lookUpR + lookDownR;
+  const gazeY = (leftEyeY + rightEyeY) / 2;
+
+  // Amplify slightly — blendshape scores are subtle (typically 0–0.5 range)
+  const AMP = 1.5;
+  return {
+    x: Math.max(-1, Math.min(1, gazeX * AMP)),
+    y: Math.max(-1, Math.min(1, gazeY * AMP)),
+  };
+}
+
+/**
+ * Exponential moving average filter for gaze points (x, y).
+ *
+ * Smooths frame-to-frame jitter on both axes independently. Resets
+ * when face is lost so the first sample after re-detection isn't
+ * pulled toward the old position.
+ */
+export class GazePointSmoother {
+  private sx: number | null = null;
+  private sy: number | null = null;
+  private readonly alpha: number;
+
+  /** @param alpha Smoothing factor in (0, 1]. Default 0.35. */
+  constructor(alpha = 0.35) {
+    this.alpha = Math.max(0.01, Math.min(1, alpha));
+  }
+
+  smooth(point: GazePoint): GazePoint {
+    if (this.sx === null || this.sy === null) {
+      this.sx = point.x;
+      this.sy = point.y;
+    } else {
+      this.sx = this.alpha * point.x + (1 - this.alpha) * this.sx;
+      this.sy = this.alpha * point.y + (1 - this.alpha) * this.sy;
+    }
+    return {
+      x: Math.max(-1, Math.min(1, this.sx)),
+      y: Math.max(-1, Math.min(1, this.sy)),
+    };
+  }
+
+  reset(): void {
+    this.sx = null;
+    this.sy = null;
+  }
+}
+
+/**
  * Compute eye contact score from MediaPipe face blendshapes.
  *
  * Uses the model's direct gaze direction outputs (eyeLookOut, eyeLookUp,

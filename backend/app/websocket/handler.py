@@ -174,6 +174,12 @@ async def _broadcast_metrics(session_id: str, timestamp_ms: int) -> None:
         "data": snapshot,
     })
 
+    # Send speaking state to the student so their UI can show a green border
+    await _send_to_student(session_id, {
+        "type": "speaking_state",
+        "data": {"is_speaking": snapshot.get("student_is_speaking", False)},
+    })
+
     # Persist snapshot for post-session analytics
     await _persist_snapshot(session_id, timestamp_ms, snapshot)
 
@@ -335,14 +341,16 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
 
     # If this role already has a connection, close the stale one and replace it.
     # This handles React StrictMode double-mounts and browser reconnections.
+    # Remove from registry BEFORE closing so the old coroutine's finally block
+    # sees was_replaced=True and skips cleanup.
     if registry.is_slot_occupied(session_id, role):
         old_ws = registry.get(session_id, role)
+        registry.remove(session_id, role)
         if old_ws is not None:
             try:
                 await old_ws.close(code=4004, reason="Replaced by new connection")
             except Exception:
                 pass
-            registry.remove(session_id, role)
     elif registry.connection_count(session_id) >= 2:
         await websocket.close(code=4002, reason="Session full")
         return
@@ -449,6 +457,9 @@ async def websocket_session(websocket: WebSocket, session_id: str, token: str | 
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected: session=%s role=%s", session_id, role)
+    except RuntimeError:
+        # Expected when a replaced connection tries to receive after close
+        logger.info("WebSocket closed (replaced): session=%s role=%s", session_id, role)
     except Exception:
         logger.exception("WebSocket error: session=%s role=%s", session_id, role)
     finally:

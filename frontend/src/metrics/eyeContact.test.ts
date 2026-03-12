@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeEyeContact, computeEyeContactFromBlendshapes, computeHeadPoseScore, EyeContactSmoother, type Landmark, type BlendshapeCategory } from "./eyeContact";
+import { computeEyeContact, computeEyeContactFromBlendshapes, computeGazePointFromBlendshapes, computeHeadPoseScore, EyeContactSmoother, GazePointSmoother, type Landmark, type BlendshapeCategory } from "./eyeContact";
 
 /**
  * MediaPipe Face Mesh landmark indices used:
@@ -319,6 +319,66 @@ describe("computeEyeContactFromBlendshapes", () => {
   });
 });
 
+describe("computeGazePointFromBlendshapes", () => {
+  it("returns center when all gaze directions are zero", () => {
+    const point = computeGazePointFromBlendshapes(makeBlendshapes());
+    expect(point).not.toBeNull();
+    expect(point!.x).toBeCloseTo(0, 1);
+    expect(point!.y).toBeCloseTo(0, 1);
+  });
+
+  it("returns negative x when looking left", () => {
+    const point = computeGazePointFromBlendshapes(makeBlendshapes({
+      eyeLookOutLeft: 0.6,
+      eyeLookInRight: 0.6,
+    }));
+    expect(point!.x).toBeLessThan(-0.3);
+  });
+
+  it("returns positive x when looking right", () => {
+    const point = computeGazePointFromBlendshapes(makeBlendshapes({
+      eyeLookInLeft: 0.6,
+      eyeLookOutRight: 0.6,
+    }));
+    expect(point!.x).toBeGreaterThan(0.3);
+  });
+
+  it("returns negative y when looking up", () => {
+    const point = computeGazePointFromBlendshapes(makeBlendshapes({
+      eyeLookUpLeft: 0.5,
+      eyeLookUpRight: 0.5,
+    }));
+    expect(point!.y).toBeLessThan(-0.3);
+  });
+
+  it("returns positive y when looking down", () => {
+    const point = computeGazePointFromBlendshapes(makeBlendshapes({
+      eyeLookDownLeft: 0.5,
+      eyeLookDownRight: 0.5,
+    }));
+    expect(point!.y).toBeGreaterThan(0.3);
+  });
+
+  it("clamps values to [-1, 1] range", () => {
+    const point = computeGazePointFromBlendshapes(makeBlendshapes({
+      eyeLookOutLeft: 1.0,
+      eyeLookOutRight: 1.0,
+      eyeLookInRight: 1.0,
+      eyeLookInLeft: 0,
+      eyeLookDownLeft: 1.0,
+      eyeLookDownRight: 1.0,
+    }));
+    expect(point!.x).toBeGreaterThanOrEqual(-1);
+    expect(point!.x).toBeLessThanOrEqual(1);
+    expect(point!.y).toBeGreaterThanOrEqual(-1);
+    expect(point!.y).toBeLessThanOrEqual(1);
+  });
+
+  it("returns null for empty blendshapes", () => {
+    expect(computeGazePointFromBlendshapes([])).toBeNull();
+  });
+});
+
 describe("EyeContactSmoother", () => {
   it("returns the raw value on first sample", () => {
     const smoother = new EyeContactSmoother();
@@ -369,5 +429,59 @@ describe("EyeContactSmoother", () => {
     expect(smoother.smooth(-0.5)).toBeGreaterThanOrEqual(0);
     smoother.reset();
     expect(smoother.smooth(1.5)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("GazePointSmoother", () => {
+  it("returns the raw point on first sample", () => {
+    const smoother = new GazePointSmoother();
+    const result = smoother.smooth({ x: 0.5, y: -0.3 });
+    expect(result.x).toBeCloseTo(0.5);
+    expect(result.y).toBeCloseTo(-0.3);
+  });
+
+  it("smooths toward the new point over multiple samples", () => {
+    const smoother = new GazePointSmoother(0.3);
+    smoother.smooth({ x: 0.8, y: 0.8 });
+    const second = smoother.smooth({ x: -0.8, y: -0.8 });
+    // Should not jump immediately
+    expect(second.x).toBeGreaterThan(-0.5);
+    expect(second.y).toBeGreaterThan(-0.5);
+  });
+
+  it("converges to stable values after many identical samples", () => {
+    const smoother = new GazePointSmoother(0.35);
+    let result = { x: 0, y: 0 };
+    for (let i = 0; i < 30; i++) {
+      result = smoother.smooth({ x: 0.4, y: -0.2 });
+    }
+    expect(result.x).toBeCloseTo(0.4, 1);
+    expect(result.y).toBeCloseTo(-0.2, 1);
+  });
+
+  it("filters out single-frame jitter", () => {
+    const smoother = new GazePointSmoother(0.3);
+    for (let i = 0; i < 10; i++) {
+      smoother.smooth({ x: 0.0, y: 0.0 });
+    }
+    const jittered = smoother.smooth({ x: 0.8, y: -0.7 });
+    expect(Math.abs(jittered.x)).toBeLessThan(0.4);
+    expect(Math.abs(jittered.y)).toBeLessThan(0.4);
+  });
+
+  it("resets state so next sample is treated as first", () => {
+    const smoother = new GazePointSmoother(0.3);
+    smoother.smooth({ x: 0.5, y: 0.5 });
+    smoother.reset();
+    const result = smoother.smooth({ x: -0.5, y: -0.5 });
+    expect(result.x).toBeCloseTo(-0.5);
+    expect(result.y).toBeCloseTo(-0.5);
+  });
+
+  it("clamps output to [-1, 1] range", () => {
+    const smoother = new GazePointSmoother(1.0); // no smoothing
+    const result = smoother.smooth({ x: 1.5, y: -1.5 });
+    expect(result.x).toBeLessThanOrEqual(1);
+    expect(result.y).toBeGreaterThanOrEqual(-1);
   });
 });

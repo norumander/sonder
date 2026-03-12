@@ -29,7 +29,7 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
     setVideoEl(node);
   }, []);
 
-  const { videoStream, status, error, consumeAudioChunks } = useMediaCapture();
+  const { videoStream, status, error, consumeAudioChunks, isMuted, toggleMute } = useMediaCapture();
   const [calibrator, setCalibrator] = useState<GazeCalibrator | null>(null);
   const [calibrated, setCalibrated] = useState(false);
   const { eyeContactScore, facialEnergy, faceDetected, rawGazePoint } = useFaceMesh(videoEl, calibrator);
@@ -47,6 +47,22 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
     if (!rawGazePoint) return null;
     return { dx: rawGazePoint.x, dy: rawGazePoint.y };
   }, [rawGazePoint]);
+
+  // Listen for speaking_state messages from backend
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  useEffect(() => {
+    if (!ws) return;
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data as string);
+        if (msg.type === "speaking_state") {
+          setIsSpeaking(msg.data.is_speaking);
+        }
+      } catch { /* ignore parse errors */ }
+    };
+    ws.addEventListener("message", handler);
+    return () => ws.removeEventListener("message", handler);
+  }, [ws]);
 
   // Request current session status on mount — syncs state in case
   // we missed a tutor_status message (e.g., rejoin after leaving).
@@ -90,7 +106,7 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
   return (
     <div className="flex min-h-[calc(100vh-64px)] flex-col items-center justify-center p-4">
       {/* Webcam preview */}
-      <div className="relative w-full max-w-lg rounded-2xl overflow-hidden bg-black mb-6 shadow-2xl shadow-brand-teal/10 border border-slate-800">
+      <div className={`relative w-full max-w-lg rounded-2xl overflow-hidden bg-black mb-6 shadow-2xl border-2 transition-colors duration-200 ${isSpeaking ? "border-green-400 shadow-green-400/20" : "border-slate-800 shadow-brand-teal/10"}`}>
         <video
           ref={videoRefCallback}
           autoPlay
@@ -115,13 +131,29 @@ export function StudentSession({ ws, tutorConnected, onLeave }: StudentSessionPr
         </div>
       )}
 
-      {/* Leave session button — disconnects without ending the session */}
-      <button
-        onClick={onLeave}
-        className="rounded-xl bg-slate-800/80 border border-slate-700 px-8 py-3 text-sm font-semibold text-white hover:bg-brand-red hover:border-brand-red hover:shadow-lg hover:shadow-brand-red/20 transition-all"
-      >
-        Leave Session
-      </button>
+      {/* Session controls */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={toggleMute}
+          className={`rounded-xl border px-6 py-3 text-sm font-semibold transition-all ${
+            isMuted
+              ? "bg-brand-red/20 border-brand-red text-white shadow-lg shadow-brand-red/20"
+              : "bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700 hover:border-slate-600"
+          }`}
+          data-testid="mute-toggle"
+          title={isMuted ? "Unmute microphone" : "Mute microphone"}
+        >
+          {isMuted ? "Unmute" : "Mute"}
+        </button>
+
+        {/* Leave session button — disconnects without ending the session */}
+        <button
+          onClick={onLeave}
+          className="rounded-xl bg-slate-800/80 border border-slate-700 px-8 py-3 text-sm font-semibold text-white hover:bg-brand-red hover:border-brand-red hover:shadow-lg hover:shadow-brand-red/20 transition-all"
+        >
+          Leave Session
+        </button>
+      </div>
 
       {/* Calibration overlay — shown once at session start */}
       {!calibrated && status === "active" && (

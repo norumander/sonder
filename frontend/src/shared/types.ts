@@ -15,6 +15,8 @@ export interface ServerMetrics {
   student_attention_drift: boolean;
   drift_reason: string | null;
   response_latency_ms: number | null;
+  tutor_is_speaking: boolean;
+  student_is_speaking: boolean;
   timestamp_ms: number;
   server_timestamp_ms: number;
 }
@@ -61,6 +63,13 @@ export interface NudgeMessage {
   timestamp: number;
 }
 
+export interface SpeakingStateMessage {
+  type: "speaking_state";
+  data: {
+    is_speaking: boolean;
+  };
+}
+
 export interface HeartbeatMessage {
   type: "heartbeat";
 }
@@ -90,6 +99,7 @@ export type ServerMessage =
   | AttentionDriftMessage
   | StudentStatusMessage
   | TutorStatusMessage
+  | SpeakingStateMessage
   | NudgeMessage
   | HeartbeatMessage
   | SessionEndedMessage

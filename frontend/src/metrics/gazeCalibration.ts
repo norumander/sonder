@@ -32,6 +32,7 @@ export class GazeCalibrator {
 
   /**
    * Finalize calibration by computing the average offset.
+   * Trims outlier samples (outside 1.5× IQR) for a more stable baseline.
    * Returns true if enough samples were collected, false otherwise.
    */
   finalize(): boolean {
@@ -39,12 +40,16 @@ export class GazeCalibrator {
       return false;
     }
 
-    const sumDx = this.samples.reduce((sum, s) => sum + s.dx, 0);
-    const sumDy = this.samples.reduce((sum, s) => sum + s.dy, 0);
+    const trimmed = trimOutliers(this.samples);
+    // Fall back to all samples if too many were trimmed
+    const usable = trimmed.length >= MIN_SAMPLES ? trimmed : this.samples;
+
+    const sumDx = usable.reduce((sum, s) => sum + s.dx, 0);
+    const sumDy = usable.reduce((sum, s) => sum + s.dy, 0);
 
     this._offset = {
-      dx: sumDx / this.samples.length,
-      dy: sumDy / this.samples.length,
+      dx: sumDx / usable.length,
+      dy: sumDy / usable.length,
     };
 
     return true;
@@ -75,4 +80,31 @@ export class GazeCalibrator {
     this.samples = [];
     this._offset = null;
   }
+}
+
+/**
+ * Remove outlier samples using the IQR method on Euclidean distance from median.
+ * Keeps samples within 1.5× IQR of the median distance.
+ */
+function trimOutliers(samples: GazeOffset[]): GazeOffset[] {
+  if (samples.length < 4) return samples;
+
+  // Find median dx and dy
+  const sortedDx = samples.map((s) => s.dx).sort((a, b) => a - b);
+  const sortedDy = samples.map((s) => s.dy).sort((a, b) => a - b);
+  const medDx = sortedDx[Math.floor(sortedDx.length / 2)];
+  const medDy = sortedDy[Math.floor(sortedDy.length / 2)];
+
+  // Distance of each sample from the median center
+  const distances = samples.map((s) =>
+    Math.sqrt((s.dx - medDx) ** 2 + (s.dy - medDy) ** 2),
+  );
+  const sortedDist = [...distances].sort((a, b) => a - b);
+
+  const q1 = sortedDist[Math.floor(sortedDist.length * 0.25)];
+  const q3 = sortedDist[Math.floor(sortedDist.length * 0.75)];
+  const iqr = q3 - q1;
+  const cutoff = q3 + 1.5 * iqr;
+
+  return samples.filter((_, i) => distances[i] <= cutoff);
 }

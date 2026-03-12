@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-import { computeEyeContact, computeEyeContactFromBlendshapes, computeGazePoint, EyeContactSmoother } from "./eyeContact";
+import { computeEyeContact, computeEyeContactFromBlendshapes, computeGazePoint, computeGazePointFromBlendshapes, EyeContactSmoother, GazePointSmoother } from "./eyeContact";
 import type { GazePoint } from "./eyeContact";
 import { computeFacialEnergy } from "./facialEnergy";
 import type { Landmark } from "./eyeContact";
@@ -45,6 +45,7 @@ export function useFaceMesh(
   const rafRef = useRef<number | null>(null);
   const lastProcessedRef = useRef<number>(0);
   const smootherRef = useRef(new EyeContactSmoother(0.3));
+  const gazeSmootherRef = useRef(new GazePointSmoother(0.35));
 
   const processFrame = useCallback(() => {
     if (!landmarkerRef.current || !videoElement) return;
@@ -60,6 +61,7 @@ export function useFaceMesh(
       setRawGazePoint(null);
       prevLandmarksRef.current = null;
       smootherRef.current.reset();
+      gazeSmootherRef.current.reset();
       return;
     }
 
@@ -77,13 +79,27 @@ export function useFaceMesh(
     }
     setEyeContactScore(eyeScore !== null ? smootherRef.current.smooth(eyeScore) : null);
 
-    const rawGaze = computeGazePoint(landmarks);
+    // Prefer blendshape gaze — direct eye direction, much better Y-axis tracking
+    let rawGaze: GazePoint | null = null;
+    if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
+      rawGaze = computeGazePointFromBlendshapes(result.faceBlendshapes[0].categories);
+    }
+    // Fall back to landmark-based iris centering + head pose
+    if (!rawGaze) {
+      rawGaze = computeGazePoint(landmarks);
+    }
+    // Expose unsmoothed raw for calibration sampling
     setRawGazePoint(rawGaze);
-    if (rawGaze && calibrator?.offset) {
-      const corrected = calibrator.correct(rawGaze.x, rawGaze.y);
-      setGazePoint(corrected);
+    // Smooth gaze point to reduce jitter, then apply calibration correction
+    if (rawGaze) {
+      const smoothed = gazeSmootherRef.current.smooth(rawGaze);
+      if (calibrator?.offset) {
+        setGazePoint(calibrator.correct(smoothed.x, smoothed.y));
+      } else {
+        setGazePoint(smoothed);
+      }
     } else {
-      setGazePoint(rawGaze);
+      setGazePoint(null);
     }
 
     const energy = computeFacialEnergy(landmarks, prevLandmarksRef.current);

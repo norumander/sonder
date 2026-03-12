@@ -15,7 +15,7 @@ describe("useNudgeQueue", () => {
   function makeNudge(overrides: Partial<NudgeData> = {}): NudgeData {
     return {
       nudge_type: "student_silent",
-      message: "Check for understanding",
+      message: "Student hasn't spoken — check for understanding",
       priority: "medium",
       ...overrides,
     };
@@ -33,7 +33,7 @@ describe("useNudgeQueue", () => {
       result.current.enqueue(makeNudge());
     });
     expect(result.current.activeNudge).not.toBeNull();
-    expect(result.current.activeNudge!.nudge.message).toBe("Check for understanding");
+    expect(result.current.activeNudge!.nudge.message).toBe("Student hasn't spoken — check for understanding");
   });
 
   it("auto-dismisses active nudge after 8 seconds", () => {

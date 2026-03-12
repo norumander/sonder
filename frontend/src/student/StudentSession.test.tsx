@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { StudentSession } from "./StudentSession";
 
+const mockToggleMute = vi.fn();
 // Mock useMediaCapture
 vi.mock("../media/useMediaCapture", () => ({
   useMediaCapture: vi.fn(() => ({
@@ -11,6 +12,8 @@ vi.mock("../media/useMediaCapture", () => ({
     micAvailable: true,
     audioChunks: [],
     consumeAudioChunks: vi.fn(() => []),
+    isMuted: false,
+    toggleMute: mockToggleMute,
   })),
 }));
 
@@ -39,7 +42,7 @@ vi.mock("../shared/useAudioStreaming", () => ({
 describe("StudentSession", () => {
   let mockWs: WebSocket;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockWs = {
       readyState: WebSocket.OPEN,
       send: vi.fn(),
@@ -47,6 +50,19 @@ describe("StudentSession", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     } as unknown as WebSocket;
+
+    // Reset mock to default (previous tests may have overridden it)
+    const { useMediaCapture } = await import("../media/useMediaCapture");
+    vi.mocked(useMediaCapture).mockReturnValue({
+      videoStream: null,
+      status: "active",
+      error: null,
+      micAvailable: true,
+      audioChunks: [],
+      consumeAudioChunks: vi.fn(() => []),
+      isMuted: false,
+      toggleMute: mockToggleMute,
+    });
   });
 
   it("shows waiting message when tutorConnected is false", () => {
@@ -178,6 +194,8 @@ describe("StudentSession", () => {
       micAvailable: false,
       audioChunks: [],
       consumeAudioChunks: vi.fn(() => []),
+      isMuted: false,
+      toggleMute: vi.fn(),
     });
 
     render(
@@ -190,5 +208,96 @@ describe("StudentSession", () => {
     );
 
     expect(screen.getByText(/camera access denied/i)).toBeInTheDocument();
+  });
+
+  it("renders mute toggle button", () => {
+    render(
+      <StudentSession
+        sessionId="sess-1"
+        token="tok-1"
+        ws={mockWs}
+        tutorConnected={true}
+      />,
+    );
+
+    expect(screen.getByTestId("mute-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("mute-toggle")).toHaveTextContent("Mute");
+  });
+
+  it("calls toggleMute when mute button is clicked", () => {
+    render(
+      <StudentSession
+        sessionId="sess-1"
+        token="tok-1"
+        ws={mockWs}
+        tutorConnected={true}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("mute-toggle"));
+    expect(mockToggleMute).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows green border when speaking_state message received", () => {
+    const listeners: Record<string, ((e: MessageEvent) => void)[]> = {};
+    const wsWithListeners = {
+      ...mockWs,
+      addEventListener: vi.fn((type: string, handler: (e: MessageEvent) => void) => {
+        if (!listeners[type]) listeners[type] = [];
+        listeners[type].push(handler);
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as WebSocket;
+
+    const { container } = render(
+      <StudentSession
+        sessionId="sess-1"
+        token="tok-1"
+        ws={wsWithListeners}
+        tutorConnected={true}
+      />,
+    );
+
+    // Initially no green border
+    const videoContainer = container.querySelector(".border-green-400");
+    expect(videoContainer).not.toBeInTheDocument();
+
+    // Simulate speaking_state message
+    act(() => {
+      const messageEvent = new MessageEvent("message", {
+        data: JSON.stringify({ type: "speaking_state", data: { is_speaking: true } }),
+      });
+      listeners["message"]?.forEach((h) => h(messageEvent));
+    });
+
+    // Now should have green border
+    expect(container.querySelector(".border-green-400")).toBeInTheDocument();
+  });
+
+  it("shows unmute label when muted", async () => {
+    const { useMediaCapture } = await import("../media/useMediaCapture");
+    const mockedHook = vi.mocked(useMediaCapture);
+
+    mockedHook.mockReturnValue({
+      videoStream: null,
+      status: "active",
+      error: null,
+      micAvailable: true,
+      audioChunks: [],
+      consumeAudioChunks: vi.fn(() => []),
+      isMuted: true,
+      toggleMute: mockToggleMute,
+    });
+
+    render(
+      <StudentSession
+        sessionId="sess-1"
+        token="tok-1"
+        ws={mockWs}
+        tutorConnected={true}
+      />,
+    );
+
+    expect(screen.getByTestId("mute-toggle")).toHaveTextContent("Unmute");
   });
 });

@@ -10,9 +10,11 @@ import { useNudgeQueue } from "./useNudgeQueue";
 
 interface NudgeContainerProps {
   ws: WebSocket | null;
+  /** Epoch ms when the session started, used to convert absolute timestamps to session-relative. */
+  sessionStartMs?: number;
 }
 
-export function NudgeContainer({ ws }: NudgeContainerProps) {
+export function NudgeContainer({ ws, sessionStartMs }: NudgeContainerProps) {
   const { activeNudge, enqueue, dismiss } = useNudgeQueue();
 
   const handleMessage = useCallback(
@@ -25,11 +27,15 @@ export function NudgeContainer({ ws }: NudgeContainerProps) {
       }
 
       if (msg.type === "nudge") {
-        const timestampMs = (msg as { timestamp?: number }).timestamp ?? null;
-        enqueue(msg.data as NudgeData, timestampMs);
+        const rawTs = (msg as { timestamp?: number }).timestamp ?? null;
+        // Convert absolute epoch ms to session-relative ms
+        const relativeTs = rawTs != null && sessionStartMs
+          ? Math.max(0, rawTs - sessionStartMs)
+          : null;
+        enqueue(msg.data as NudgeData, relativeTs);
       }
     },
-    [enqueue],
+    [enqueue, sessionStartMs],
   );
 
   useEffect(() => {

@@ -32,6 +32,8 @@ class TestMetricsAggregatorSnapshot:
         assert "student_eye_contact" in snapshot
         assert "tutor_attention_drift" in snapshot
         assert "student_attention_drift" in snapshot
+        assert "tutor_is_speaking" in snapshot
+        assert "student_is_speaking" in snapshot
 
     def test_snapshot_includes_eye_contact_from_client(self):
         """Eye contact scores come from latest client metrics."""
@@ -56,6 +58,27 @@ class TestMetricsAggregatorSnapshot:
         assert snapshot["student_eye_contact"] is None
         assert snapshot["tutor_energy"] is None
         assert snapshot["student_energy"] is None
+
+
+class TestMetricsAggregatorSpeakingState:
+    """Test is_speaking fields in snapshot."""
+
+    def test_speaking_false_by_default(self):
+        """Both participants show not speaking before any audio."""
+        agg = MetricsAggregator()
+        snapshot = agg.get_snapshot("sess-speak-default", timestamp_ms=0)
+        assert snapshot["tutor_is_speaking"] is False
+        assert snapshot["student_is_speaking"] is False
+
+    def test_speaking_false_after_silence(self):
+        """Silence audio chunk results in is_speaking=False."""
+        import base64
+        agg = MetricsAggregator()
+        sid = "sess-speak-silence"
+        silence = base64.b64encode(b"\x00" * 32000).decode()
+        agg.process_audio_chunk(sid, "tutor", silence, timestamp_ms=0)
+        snapshot = agg.get_snapshot(sid, timestamp_ms=1000)
+        assert snapshot["tutor_is_speaking"] is False
 
 
 class TestMetricsAggregatorAudioProcessing:

@@ -718,6 +718,24 @@ _None yet._
 - **Blockers**: None
 - **Open Questions**: Response latency may need a different approach for same-room test setups where both mics pick up identical audio. Works correctly when participants are in separate rooms.
 
+### Checkpoint — 2026-03-11 17:15
+- **Phase**: Post-completion — UI/UX polish and bug fixes
+- **Completed**:
+  1. **Fixed 3 failing frontend tests**: `App.test.tsx` and `LoginPage.test.tsx` — updated selectors for "Sonder" (now appears twice after landing page redesign, use `getByRole("heading")`), updated tagline text to match redesigned copy. `NudgeToast.test.tsx` — updated `border-blue` → `border-brand-teal` for low priority styling.
+  2. **Blendshape-based gaze Y-axis tracking**: Added `computeGazePointFromBlendshapes()` using `eyeLookOut/In/Up/Down` blendshapes for direct eye direction tracking instead of landmark-based iris centering. Much more responsive on vertical axis. Wired into `useFaceMesh` with landmark fallback. 7 new tests. Files: `eyeContact.ts`, `useFaceMesh.ts`, `eyeContact.test.ts`
+  3. **Gaze point smoothing**: Added `GazePointSmoother` class (EMA, alpha=0.35) to reduce frame-to-frame jitter on the gaze debug dot. 6 new tests. Files: `eyeContact.ts`, `useFaceMesh.ts`
+  4. **Calibration outlier trimming**: `GazeCalibrator.finalize()` now trims outlier samples using IQR method before computing baseline offset. Reduced blendshape amplification 1.8x → 1.5x. Files: `gazeCalibration.ts`, `eyeContact.ts`
+  5. **Summary generator race condition fix**: `generate_summary()` now checks for existing summary before INSERT, preventing `UniqueViolationError` (500) on concurrent requests. Files: `backend/app/summary/generator.py`
+  6. **Tutor session layout overhaul**:
+     - **End Session button**: `fixed bottom-6` — always visible, centers when metrics hidden, left-aligned when metrics shown.
+     - **Metrics panel retractable**: Entire right column collapses via a fixed edge tab/handle on the right viewport edge (chevron arrow, always visible). Webcam column expands to full width when metrics hidden (with `max-w-2xl` cap on video).
+     - **Nudge toasts**: Completely separate from metrics container — `fixed z-50` overlay, always visible regardless of metrics toggle.
+  7. **Nudge timestamp fix**: `NudgeContainer` now accepts `sessionStartMs` prop and converts absolute epoch timestamps to session-relative ms before display. Files: `NudgeContainer.tsx`, `TutorSessionPage.tsx`
+- **State**: 285 backend tests passing, 299 frontend tests passing (584 total). All changes uncommitted. Docker running. 32 of 34 tasks complete (TASK-027 demo video and TASK-033 test videos deferred).
+- **Next**: Commit all accumulated changes. Then optionally implement improvement #6 — Video quality check at session start (warn about poor lighting/backlighting/camera obstructions).
+- **Blockers**: None
+- **Open Questions**: None
+
 ### Checkpoint — 2026-03-11 16:20
 - **Phase**: Eye tracking improvement sprint (user-requested)
 - **Completed**: 5 of 6 planned improvements committed in `4ac3dbf`:
@@ -728,5 +746,32 @@ _None yet._
   5. **Calibration**: Created `GazeCalibrator` class (collect samples → compute offset → correct gaze), `CalibrationOverlay` component (3s countdown, skip option), wired into both `TutorSessionPage` and `StudentSession`. 9 new tests. Files: `gazeCalibration.ts`, `gazeCalibration.test.ts`, `CalibrationOverlay.tsx`, `TutorSessionPage.tsx`, `StudentSession.tsx`, `useFaceMesh.ts`
 - **State**: 51 metrics tests pass (32 eyeContact + 9 calibration + 6 facialEnergy + 4 useFaceMesh). 3 pre-existing failures in NudgeToast tests (unrelated). Commit `4ac3dbf`.
 - **Next**: Implement improvement #6 — Video quality check at session start. Should warn user about poor lighting, backlighting, or camera obstructions before session begins. Needs a `VideoQualityCheck` component that analyzes the first few frames and shows warnings. Add to both TutorSessionPage and StudentSession (can show alongside or before CalibrationOverlay).
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-11 23:20
+- **Phase**: Post-completion — Mute button + speaking indicator features
+- **Completed**:
+  1. **Mute button (tutor + student)**: Added `isMuted` state and `toggleMute()` to `useMediaCapture` hook. Disables audio tracks and sends silent PCM frames (not skipping entirely) so backend VAD registers silence and talk time decreases naturally. Tutor mute button in control bar next to "Live" indicator. Student mute button next to "Leave Session" button. Files: `useMediaCapture.ts`, `TutorSessionPage.tsx`, `StudentSession.tsx`.
+  2. **Green speaking border**: Camera frame turns green with glow when VAD detects the participant is speaking. Backend already tracks `is_speech` per participant via WebRTC VAD — added `tutor_is_speaking` / `student_is_speaking` to `server_metrics` snapshot. Backend sends `speaking_state` message to student's WebSocket. Tutor reads speaking state from `server_metrics`. Files: `aggregator.py`, `handler.py`, `types.ts`, `TutorSessionPage.tsx`, `StudentSession.tsx`.
+  3. **Audio processing confirmed**: WebRTC VAD (aggressiveness 2) was already in use — talk time is based on voice detection (10ms frames, >50% speech threshold), not raw audio levels. No changes needed.
+  4. **Tests**: 12 new tests across 4 files — mute toggle state, audio track enabled/disabled, mute UI labels, speaking border activation, snapshot `is_speaking` fields. All tests passing.
+- **State**: 314 frontend tests (34 files), 287 backend tests — all passing (601 total). All changes uncommitted (22+ modified files). Docker running. 32 of 34 tasks complete (TASK-027 demo video and TASK-033 test videos deferred).
+- **Next**: Commit all accumulated changes. Then optionally: (1) rebuild Docker and E2E test mute + green border in live session, (2) implement video quality check at session start (improvement #6 from prior session).
+- **Blockers**: None
+- **Open Questions**: None
+
+### Checkpoint — 2026-03-11 17:55
+- **Phase**: Post-completion — Nudge clarity + WebSocket reliability fixes
+- **Completed**:
+  1. **Nudge message clarity** (user-requested): Rewrote all 6 nudge messages to explicitly state who triggered the nudge and what to do. E.g. "Check for understanding" → "Student hasn't spoken — check for understanding". Updated `backend/app/nudges/engine.py` NUDGE_MESSAGES dict.
+  2. **Nudge toast trigger source badge**: Added colored "Student" (yellow) / "Tutor" (purple) pill badge to `NudgeToast` component. New `getTriggerSource()` helper derives source from nudge_type prefix. 3 new tests. Files: `NudgeToast.tsx`, `NudgeToast.test.tsx`.
+  3. **NudgeSettings descriptions**: Each nudge type now shows a clear label (e.g. "Tutor Talking Too Much" instead of "Tutor Dominant"), a trigger source tag, and a one-line description. Threshold fields now include hint text. Files: `NudgeSettings.tsx`, `NudgeSettings.test.tsx`.
+  4. **WebSocket reconnection**: Added auto-reconnect with exponential backoff (1s→2s→4s→8s) for both tutor and student WebSocket connections. Uses `connectKey` state pattern — close event increments key, triggering effect re-run. Survives HMR reloads and backend restarts. Files: `App.tsx`.
+  5. **Dashboard connection state**: "Waiting for metrics..." now shows "Reconnecting to server..." with yellow indicator when WebSocket is down. New optional `wsReady` prop on `LiveDashboard`. Files: `LiveDashboard.tsx`, `TutorSessionPage.tsx`.
+  6. **Backend race condition fix**: Moved `registry.remove()` before `old_ws.close()` in replacement logic so the old connection's finally block correctly sees `was_replaced=True` and skips cleanup. Also added `RuntimeError` handler for replaced connections (no more noisy tracebacks). Files: `handler.py`.
+  7. **Test updates**: Updated 8 test files across frontend and backend to match new messages, labels, and component structure. All 304 frontend tests and 272+ backend tests passing.
+- **State**: 304 frontend tests (34 files), 272+ backend tests — all passing. WebSocket reconnection verified working (tutor reconnected after backend hot-reload). All changes uncommitted. Docker running.
+- **Next**: Commit all accumulated changes. Then user may want to: (1) test nudge clarity in a live session, (2) verify reconnection survives multiple backend restarts, (3) implement video quality check at session start (improvement #6 from prior session).
 - **Blockers**: None
 - **Open Questions**: None

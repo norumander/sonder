@@ -24,9 +24,9 @@ describe("LoginPage", () => {
 
   it("renders the app title and tagline", () => {
     renderLoginPage();
-    expect(screen.getByText("Sonder")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Sonder" })).toBeInTheDocument();
     expect(
-      screen.getByText("Live tutoring engagement analytics"),
+      screen.getByText("Elevate Tutoring Performance with AI Analytics."),
     ).toBeInTheDocument();
   });
 

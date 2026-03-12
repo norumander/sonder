@@ -16,6 +16,8 @@ import { degradationKey } from "./useServerMetrics";
 
 interface LiveDashboardProps {
   state: ServerMetricsState;
+  /** Whether the WebSocket connection is open. False shows reconnection state. */
+  wsReady?: boolean;
 }
 
 interface ParticipantMetrics {
@@ -191,17 +193,27 @@ function LatencyIndicator({ latencyMs }: { latencyMs: number | null }) {
   );
 }
 
-export function LiveDashboard({ state }: LiveDashboardProps) {
+export function LiveDashboard({ state, wsReady }: LiveDashboardProps) {
   const { metrics, studentConnected, trends, engagementScore, degradationWarnings, pipelineLatency } =
     state;
 
   if (!metrics) {
     return (
       <div
-        className="flex items-center justify-center p-8 text-gray-400"
+        className="flex flex-col items-center justify-center gap-3 p-8 text-gray-400"
         data-testid="dashboard-waiting"
       >
-        Waiting for metrics...
+        {wsReady === false ? (
+          <>
+            <span className="h-2.5 w-2.5 rounded-full bg-yellow-500 animate-pulse" />
+            <span>Reconnecting to server...</span>
+          </>
+        ) : (
+          <>
+            <span className="h-2.5 w-2.5 rounded-full bg-brand-teal animate-pulse" />
+            <span>Waiting for metrics...</span>
+          </>
+        )}
       </div>
     );
   }

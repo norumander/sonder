@@ -18,8 +18,8 @@ describe("App", () => {
 
   it("renders the login page when not authenticated", () => {
     renderApp();
-    expect(screen.getByText("Sonder")).toBeInTheDocument();
-    expect(screen.getByText("Live tutoring engagement analytics")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Sonder" })).toBeInTheDocument();
+    expect(screen.getByText("Elevate Tutoring Performance with AI Analytics.")).toBeInTheDocument();
   });
 
   it("redirects to sessions page when authenticated", () => {

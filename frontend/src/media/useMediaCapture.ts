@@ -17,6 +17,10 @@ export interface MediaCaptureState {
   audioChunks: AudioChunk[];
   /** Clear the audio chunks buffer after reading */
   consumeAudioChunks: () => AudioChunk[];
+  /** Whether the microphone is currently muted */
+  isMuted: boolean;
+  /** Toggle microphone mute on/off */
+  toggleMute: () => void;
 }
 
 const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
@@ -40,6 +44,8 @@ export function useMediaCapture(): MediaCaptureState {
   const [status, setStatus] = useState<MediaCaptureStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [micAvailable, setMicAvailable] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const isMutedRef = useRef(false);
   const audioChunksRef = useRef<AudioChunk[]>([]);
   const [audioChunks, setAudioChunks] = useState<AudioChunk[]>([]);
 
@@ -56,6 +62,20 @@ export function useMediaCapture(): MediaCaptureState {
     audioChunksRef.current = [];
     setAudioChunks([]);
     return chunks;
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const newMuted = !isMutedRef.current;
+    isMutedRef.current = newMuted;
+    setIsMuted(newMuted);
+
+    // Disable/enable the actual audio tracks
+    const stream = streamRef.current;
+    if (stream) {
+      for (const track of stream.getAudioTracks()) {
+        track.enabled = !newMuted;
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -136,7 +156,13 @@ export function useMediaCapture(): MediaCaptureState {
       processor.onaudioprocess = (event: AudioProcessingEvent) => {
         if (cancelled) return;
         const inputData = event.inputBuffer.getChannelData(0);
-        pcmBufferRef.current.push(new Float32Array(inputData));
+        if (isMutedRef.current) {
+          // Send silent frames so backend VAD registers silence
+          // and talk time decreases in the rolling window
+          pcmBufferRef.current.push(new Float32Array(inputData.length));
+        } else {
+          pcmBufferRef.current.push(new Float32Array(inputData));
+        }
 
         const now = Date.now();
         if (now - lastChunkTimeRef.current >= CHUNK_DURATION_MS) {
@@ -210,5 +236,7 @@ export function useMediaCapture(): MediaCaptureState {
     micAvailable,
     audioChunks,
     consumeAudioChunks,
+    isMuted,
+    toggleMute,
   };
 }

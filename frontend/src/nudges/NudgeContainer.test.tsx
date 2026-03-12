@@ -40,7 +40,7 @@ describe("NudgeContainer", () => {
       type: "nudge",
       data: {
         nudge_type: "student_silent",
-        message: "Check for understanding",
+        message: "Student hasn't spoken — check for understanding",
         priority: "medium",
         ...overrides,
       },
@@ -65,7 +65,7 @@ describe("NudgeContainer", () => {
       );
     });
 
-    expect(screen.getByText("Check for understanding")).toBeTruthy();
+    expect(screen.getByText(/check for understanding/i)).toBeTruthy();
   });
 
   it("auto-dismisses toast after 8 seconds", () => {

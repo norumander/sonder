@@ -10,6 +10,17 @@ const PRIORITY_STYLES: Record<NudgeData["priority"], string> = {
   low: "border-brand-teal/50 bg-brand-teal/10 text-brand-teal",
 };
 
+/** Derive the trigger source from nudge_type for display. */
+export function getTriggerSource(nudgeType: string): "Student" | "Tutor" {
+  if (nudgeType.startsWith("tutor_")) return "Tutor";
+  return "Student";
+}
+
+const TRIGGER_STYLES: Record<string, string> = {
+  Student: "bg-yellow-500/20 text-yellow-300",
+  Tutor: "bg-brand-purple/20 text-brand-purple",
+};
+
 /** Format session-relative milliseconds as hh:mm:ss. */
 export function formatSessionTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -26,6 +37,7 @@ interface NudgeToastProps {
 }
 
 export function NudgeToast({ nudge, timestampMs, onDismiss }: NudgeToastProps) {
+  const source = getTriggerSource(nudge.nudge_type);
   return (
     <div
       data-testid="nudge-toast"
@@ -36,6 +48,12 @@ export function NudgeToast({ nudge, timestampMs, onDismiss }: NudgeToastProps) {
           <p className="text-xs font-bold uppercase tracking-wider opacity-80">
             Coaching Nudge
           </p>
+          <span
+            data-testid="nudge-source"
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${TRIGGER_STYLES[source]}`}
+          >
+            {source}
+          </span>
           {timestampMs != null && (
             <span
               className="text-[10px] font-mono opacity-60"

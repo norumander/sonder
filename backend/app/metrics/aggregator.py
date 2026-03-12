@@ -207,6 +207,8 @@ class MetricsAggregator:
             "student_attention_drift": student_drift,
             "drift_reason": drift_reason,
             "response_latency_ms": self._response_latency.get_avg_latency_ms(session_id),
+            "tutor_is_speaking": self._vad_state[session_id].get("tutor", False),
+            "student_is_speaking": self._vad_state[session_id].get("student", False),
             "timestamp_ms": timestamp_ms,
             "server_timestamp_ms": int(time.time() * 1000),
         }
