@@ -36,15 +36,13 @@ def _backend_dir():
 class TestProductionFailFast:
     """Production environment must reject default/missing critical config."""
 
-    def test_production_rejects_default_jwt_secret(self):
-        """App exits with code 1 when JWT secret is default in production."""
+    def test_production_rejects_missing_jwt_secret(self):
+        """App exits with validation error when JWT secret is not set."""
         result = _run_config_module({
             "SONDER_ENVIRONMENT": "production",
-            "SONDER_JWT_SECRET": "dev-secret-change-in-production",
             "SONDER_GOOGLE_CLIENT_ID": "some-client-id",
         })
         assert result.returncode == 1
-        assert "SONDER_JWT_SECRET" in result.stderr
 
     def test_production_rejects_missing_google_client_id(self):
         """App exits with code 1 when Google Client ID is missing in production."""
@@ -65,14 +63,15 @@ class TestProductionFailFast:
         })
         assert result.returncode == 0
 
-    def test_development_allows_default_jwt_secret(self):
-        """Dev environment allows default JWT secret (warning only, no exit)."""
+    def test_development_starts_with_jwt_secret(self):
+        """Dev environment starts when JWT secret is provided."""
         result = _run_config_module({
             "SONDER_ENVIRONMENT": "development",
+            "SONDER_JWT_SECRET": "any-dev-secret",
         })
         assert result.returncode == 0
 
-    def test_no_environment_defaults_to_development(self):
-        """Without SONDER_ENVIRONMENT, defaults to development (no exit)."""
+    def test_missing_jwt_secret_fails(self):
+        """App fails to start without SONDER_JWT_SECRET in any environment."""
         result = _run_config_module({})
-        assert result.returncode == 0
+        assert result.returncode == 1

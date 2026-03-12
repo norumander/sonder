@@ -7,9 +7,6 @@ from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_JWT_SECRET = "dev-secret-change-in-production"
-
-
 class Settings(BaseSettings):
     """Application settings with environment variable loading."""
 
@@ -21,7 +18,7 @@ class Settings(BaseSettings):
 
     # Auth
     google_client_id: str = ""
-    jwt_secret: str = _DEFAULT_JWT_SECRET
+    jwt_secret: str  # Required — must be set via SONDER_JWT_SECRET env var
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
 
@@ -34,19 +31,6 @@ class Settings(BaseSettings):
 settings = Settings()
 
 _is_production = settings.environment.lower() == "production"
-
-if settings.jwt_secret == _DEFAULT_JWT_SECRET:
-    if _is_production:
-        logger.critical(
-            "SONDER_JWT_SECRET is using the default value in production. "
-            "Set a secure random secret via environment variable."
-        )
-        sys.exit(1)
-    else:
-        logger.warning(
-            "SONDER_JWT_SECRET is using the default value. "
-            "Set a secure random secret via environment variable."
-        )
 
 if not settings.google_client_id:
     if _is_production:

@@ -1,5 +1,9 @@
 """Shared test fixtures for backend tests."""
 
+import os
+
+os.environ.setdefault("SONDER_JWT_SECRET", "test-jwt-secret")
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
