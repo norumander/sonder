@@ -26,12 +26,12 @@
   - **Database**: PostgreSQL 15 with SQLAlchemy 2.0 (async) + Alembic. Matches Nerdy's existing stack. JSONB columns for flexible metric storage.
   - **Auth**: Google OAuth 2.0 via `@react-oauth/google` (frontend) and `google-auth` + `python-jose` JWT (backend).
   - **Testing**: Vitest + React Testing Library (frontend), pytest + pytest-asyncio (backend).
-  - **Deployment**: Docker Compose for one-command setup.
+  - **Deployment**: Railway (production) with auto-deploy on push to main. Docker Compose for local development.
 - **Consequences**:
   - Positive: Aligns with PRD requirements and Nerdy's tech preferences. Well-documented libraries with strong community support.
   - Positive: Async FastAPI handles concurrent WebSocket connections efficiently.
   - Negative: Two-language stack (TypeScript + Python) adds context switching overhead.
-  - Neutral: Docker Compose is dev-only; production deployment (ECS/Fargate) would need additional config.
+  - Neutral: Railway handles production deployment via Dockerfile auto-detection. Docker Compose used for local development.
 
 ---
 

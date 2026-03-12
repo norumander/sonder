@@ -203,7 +203,8 @@ Sonder is a browser-based companion app for live 1:1 video tutoring sessions. Bo
 | Frontend Auth | @react-oauth/google | Google sign-in button + token flow |
 | Test (Frontend) | Vitest + React Testing Library | Vite-native, Jest-compatible API |
 | Test (Backend) | pytest + pytest-asyncio | Async test support for FastAPI |
-| Deployment | Docker Compose | One-command: PostgreSQL + FastAPI + Vite |
+| Deployment (dev) | Docker Compose | One-command local: PostgreSQL + FastAPI + Vite |
+| Deployment (prod) | Railway | Auto-deploy on push to main; separate services per Dockerfile |
 
 ## Data Models
 
@@ -278,6 +279,36 @@ Tutor (1) ──────< Session (many)
 - `recommendations`: JSONB array (2–4 strings)
 - `overall_engagement_score`: float (0–100)
 
+## Deployment
+
+### Production — Railway
+
+The application is deployed on [Railway](https://railway.app) as two separate services, each auto-deployed on push to `main`:
+
+| Service | Dockerfile | Port | Notes |
+|---------|-----------|------|-------|
+| Backend | `backend/Dockerfile` | 8000 | Runs Alembic migrations via `entrypoint.sh` before starting uvicorn |
+| Frontend | `frontend/Dockerfile.prod` | 80 | Multi-stage build: Vite → nginx:alpine with `nginx.railway.conf` |
+
+**Database**: Railway-managed PostgreSQL instance. Connection string provided via `DATABASE_URL` environment variable.
+
+**Build args** (set in Railway service settings):
+- `VITE_GOOGLE_CLIENT_ID` — Google OAuth client ID (baked into frontend at build time)
+- `VITE_API_URL` — Backend URL (baked into frontend at build time)
+
+**Environment variables** (set per service in Railway):
+- Backend: `SONDER_DATABASE_URL`, `SONDER_JWT_SECRET`, `SONDER_GOOGLE_CLIENT_ID`, `SONDER_CORS_ORIGINS`
+- Frontend: Build args only (static SPA served by nginx)
+
+**Deployment flow**: Push to `main` → Railway detects Dockerfiles → builds and deploys both services automatically.
+
+### Local Development — Docker Compose
+
+```bash
+docker compose up        # dev: hot reload, port 5173 (frontend) + 8000 (backend)
+docker compose -f docker-compose.prod.yml up  # prod-like: nginx on port 8080
+```
+
 ## Boundaries & Constraints
 
 - **Desktop browsers only** — Chrome and Firefox on desktop. No mobile support.
@@ -310,6 +341,9 @@ sonder/
 │   │   └── main.tsx
 │   ├── public/
 │   ├── index.html
+│   ├── Dockerfile              # Dev container
+│   ├── Dockerfile.prod         # Production: multi-stage Vite build → nginx:alpine
+│   ├── nginx.railway.conf      # SPA nginx config for Railway deployment
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── vite.config.ts
@@ -329,6 +363,8 @@ sonder/
 │   │   ├── database.py     # Async DB session management
 │   │   └── main.py         # FastAPI app entry point
 │   ├── alembic/            # Database migrations
+│   ├── Dockerfile              # Python 3.11 slim + system deps (ffmpeg, libsndfile)
+│   ├── entrypoint.sh           # Runs Alembic migrations before app start
 │   ├── alembic.ini
 │   ├── requirements.txt
 │   └── tests/
@@ -339,7 +375,9 @@ sonder/
 │       ├── test_nudges.py
 │       ├── test_audio.py
 │       └── test_summary.py
-├── docker-compose.yml
+├── docker-compose.yml          # Local dev: PostgreSQL + backend + frontend
+├── docker-compose.prod.yml     # Production-like local build (nginx on :8080)
+├── nginx.conf                  # Reverse proxy config for prod compose
 ├── .env.example
 ├── CLAUDE.md
 ├── PRD.md
