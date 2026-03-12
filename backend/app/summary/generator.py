@@ -353,7 +353,8 @@ async def generate_summary(
         talk_time_ratio, total_interruptions, drift_count,
     )
 
-    # Persist
+    # Persist — handle race condition where background task and request
+    # both try to insert simultaneously
     summary = SessionSummary(
         id=uuid.uuid4(),
         session_id=session_id,
@@ -366,7 +367,18 @@ async def generate_summary(
         recommendations=recommendations,
         overall_engagement_score=engagement_score,
     )
-    db.add(summary)
-    await db.commit()
-    await db.refresh(summary)
+    try:
+        db.add(summary)
+        await db.commit()
+        await db.refresh(summary)
+    except Exception:
+        await db.rollback()
+        # Another task inserted first — return the existing summary
+        existing_result = await db.execute(
+            select(SessionSummary).where(SessionSummary.session_id == session_id)
+        )
+        existing = existing_result.scalar_one_or_none()
+        if existing is not None:
+            return existing
+        raise
     return summary
