@@ -28,16 +28,19 @@ def _highpass_filter(pcm_data: bytes) -> bytes:
 
     Removes low-frequency rumble (HVAC, desk vibrations, traffic) that can
     cause false positives in VAD without affecting speech frequencies.
+
+    Uses scipy.signal.lfilter for efficient vectorized filtering (no Python loop).
     """
     samples = np.frombuffer(pcm_data, dtype=np.int16).astype(np.float64)
     if len(samples) < 2:
         return pcm_data
 
-    # y[n] = α * (y[n-1] + x[n] - x[n-1])
-    filtered = np.empty_like(samples)
-    filtered[0] = samples[0]
-    for i in range(1, len(samples)):
-        filtered[i] = _HP_ALPHA * (filtered[i - 1] + samples[i] - samples[i - 1])
+    # First-order high-pass: H(z) = α(1 - z⁻¹) / (1 - αz⁻¹)
+    from scipy.signal import lfilter
+
+    b = np.array([_HP_ALPHA, -_HP_ALPHA])
+    a = np.array([1.0, -_HP_ALPHA])
+    filtered = lfilter(b, a, samples)
 
     return np.clip(filtered, -32768, 32767).astype(np.int16).tobytes()
 

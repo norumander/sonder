@@ -42,6 +42,11 @@ class MetricsAggregator:
         # Latest prosody features per session/role
         self._prosody_cache: dict[str, dict[str, dict[str, float]]] = defaultdict(dict)
 
+        # Throttle prosody analysis to ~1s intervals (expensive librosa calls)
+        self._last_prosody_ms: dict[str, dict[str, int]] = defaultdict(
+            lambda: {"tutor": 0, "student": 0}
+        )
+
         # Latest client metrics per session/role
         self._client_metrics: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
 
@@ -147,11 +152,13 @@ class MetricsAggregator:
             session_id, tutor_speech, student_speech, timestamp_ms
         )
 
-        # Prosody analysis (for energy scoring)
-        prosody = self._prosody.analyze(b64_pcm)
-
-        # Store latest prosody per role
-        self._prosody_cache[session_id][role] = prosody
+        # Prosody analysis (for energy scoring) — throttled to ~1s intervals
+        # because librosa is too expensive to run on every 250ms chunk
+        last_prosody = self._last_prosody_ms[session_id][role]
+        if timestamp_ms - last_prosody >= 1000:
+            prosody = self._prosody.analyze(b64_pcm)
+            self._prosody_cache[session_id][role] = prosody
+            self._last_prosody_ms[session_id][role] = timestamp_ms
 
     def get_snapshot(self, session_id: str, timestamp_ms: int) -> dict[str, Any]:
         """Build a unified metrics snapshot for broadcasting.
@@ -237,6 +244,7 @@ class MetricsAggregator:
         self._prev_drift.pop(session_id, None)
         self._pending_drift_changes.pop(session_id, None)
         self._prosody_cache.pop(session_id, None)
+        self._last_prosody_ms.pop(session_id, None)
 
     def _compute_energy(
         self, session_id: str, role: str, facial_energy: float | None
